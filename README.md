@@ -10,7 +10,6 @@ This project implements a modular Software-Defined Vehicle (SDV) logic using the
 - Linux (Ubuntu recommended)
 
 ---
-<->Markdown 
 
 ## Project Structure V1
 sdv_logic/
