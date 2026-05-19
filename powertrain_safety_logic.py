@@ -1,25 +1,38 @@
 class PowertrainSafetyLogic:
 
+# Gear Logic Defs
+# gear < 0 - Reverse
+# gear = 0 - Neutral
+# gear > 0 - Forward
+# 127 - special drive case
+# 126 - Park 
+
     # Input Signals
     SPEED_SIGNAL = "Vehicle.Speed"
     GEAR_SIGNAL = "Vehicle.Powertrain.Transmission.CurrentGear"
-
-    # Gear Values based on system definition 
-    GEAR_NEUTRAL = 0
-    GEAR_PARK = 126
     
     # Constructor 
-    def __init__(self, kuksa):
+    def __init__(self, kuksa, config):
         self.kuksa = kuksa
+
+        # load config values from yaml file
+        self.GEAR_NEUTRAL = config["gear_neutral"]
+        self.GEAR_PARK = config["gear_park"]
+        self.GEAR_DRIVE = config["gear_drive"]
+
+        self.reverse_gear_threshold = config["reverse_gear_threshold"]
+        self.moving_speed_threshold = config["moving_speed_threshold_kmh"]
+
+        # runtime states
         self.last_valid_gear = self.GEAR_NEUTRAL
         self.last_warning = None
         self.last_valid_speed = 0
 
     def is_forward(self, gear): # check for forward driving state
-        return gear > 0 or gear == 127
+        return gear > self.GEAR_NEUTRAL or gear == self.GEAR_DRIVE
 
     def is_reverse(self, gear): # check for reverse driving state 
-        return gear < 0
+        return gear < self.reverse_gear_threshold
     
     def print_warning_once(self, warning_key, message): # for printing warning message only once per detection
         if self.last_warning != warning_key:

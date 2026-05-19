@@ -1,0 +1,7 @@
+# Definition of the base connection
+system:
+  cycle_time_s: 0.1
+
+kuksa:
+  host: "127.0.0.1"
+  port: 55555

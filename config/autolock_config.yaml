@@ -1,0 +1,5 @@
+# Definition of Constants (what the user might want to change)
+autolock:
+
+  threshold_kmh: 15
+  

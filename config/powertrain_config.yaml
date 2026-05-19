@@ -1,0 +1,7 @@
+powertrain:
+  gear_neutral: 0
+  gear_park: 126
+  gear_drive: 127
+
+  reverse_gear_threshold: 0
+  moving_speed_threshold_kmh: 0
