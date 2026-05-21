@@ -1,5 +1,12 @@
 class PowertrainSafetyLogic:
 
+    '''
+    Handles Safety rules for vehicles powertrain
+    - Prevents shifting gears if the engine is not running 
+    - blocks acceleration attempts while th evehicle is in N
+    - Prevents shifting into park or reverse gear safety violations while moving 
+    '''
+
 # Gear Logic Defs
 # gear < 0 - Reverse
 # gear = 0 - Neutral
@@ -47,14 +54,23 @@ class PowertrainSafetyLogic:
 
 ## ---- Logic for invalid speed increase while in ivalid gear -------- 
         # Prevent Speed increase in invalid gear (N)
-        if not (self.is_forward(gear) or self.is_reverse(gear)):
+        #if not (self.is_forward(gear) or self.is_reverse(gear)):
             # if speed increases while gear is invalid -> reset
+         #   self.kuksa.publish(self.SPEED_SIGNAL, self.last_valid_speed)
+          #  self.print_warning_once(
+          #      "invalid_acceleration",
+          #      "Safety: Acceleration not allowed in current gear, switch to Drive"
+          #  )
+        if (
+            not (self.is_forward(gear) or self.is_reverse(gear))
+            and speed > self.last_valid_speed
+        ):
             self.kuksa.publish(self.SPEED_SIGNAL, self.last_valid_speed)
             self.print_warning_once(
                 "invalid_acceleration",
                 "Safety: Acceleration not allowed in current gear, switch to Drive"
             )
-        
+
         # Store last valid speed only if gear is valid
         if self.is_forward(gear) or self.is_reverse(gear):
             self.last_valid_speed = speed

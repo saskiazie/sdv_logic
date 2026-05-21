@@ -1,3 +1,5 @@
+# Diese Dateien nicht mit hochladen bei github
+
 venv/
 __pycache__/
 *.pyc
