@@ -1,7 +1,7 @@
 from kuksa_client.grpc import VSSClient, Datapoint
 
 class KuksaConnection:
-        def __init__(self, host="127.0.0.1", port=55555):
+        def __init__(self, host="127.0.0.1", port=55555): # fallback, if no values have been configurated (in config file)
                 self.client = VSSClient(host, port)
 
         def connect(self):

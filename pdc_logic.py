@@ -6,16 +6,17 @@ class PDCLogic:
     # Output Signal
     PDC_REAR_ACTIVE_SIGNAL = "Vehicle.ADAS.PDC.Rear.IsActive"
 
-    def __init__(self, kuksa):
+    def __init__(self, kuksa, config):
         self.kuksa = kuksa
+        self.reverse_gear_threshold = config["reverse_gear_threshold"]
         self.pdc_active = False
 
     def is_reverse(self,gear):
-        return gear < 0
+        return gear < self.reverse_gear_threshold
 
     def run(self):
 
-        # Read curretn values
+        # Read current values
         gear = int(self.kuksa.get(self.GEAR_SIGNAL, 0))
 
         # Activate rear PDC when reverse gear is selected

@@ -1,6 +1,7 @@
 import time 
 import threading
 
+from config_loader import load_configs # config files 
 from kuksa_connection import KuksaConnection
 from start_sequence import StartSequence 
 from auto_lock import AutoLock
@@ -15,8 +16,11 @@ def run_logic(logic_module, cycle_time=0.1):
 
 # main loop
 def main():
+    config = load_configs() # load alll available config files *yaml - first step of all
+
     # Definition of KUKSA Databroker with IP-Adress
-    kuksa = KuksaConnection(host="127.0.0.1", port=55555)
+    kuksa = KuksaConnection(host=config["kuksa"]["host"], 
+                            port=config["kuksa"]["port"]) 
     
     # Establish connection to KUKSA Databroker
     # If the connection fails, the program is stopped
@@ -26,9 +30,9 @@ def main():
 
     # ------- Initialize logic classes (all of them) --------
     start_sequence = StartSequence(kuksa)
-    auto_lock = AutoLock(kuksa) 
-    powertrain_safety_logic = PowertrainSafetyLogic(kuksa)
-    pdc_logic = PDCLogic(kuksa)
+    auto_lock = AutoLock(kuksa, config["autolock"]) 
+    powertrain_safety_logic = PowertrainSafetyLogic(kuksa, config["powertrain"])
+    pdc_logic = PDCLogic(kuksa, config["pdc"])
         
     # needed for thread
     logic_modules = [
