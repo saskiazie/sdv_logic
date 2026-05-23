@@ -19,13 +19,14 @@ class PDCLogic:
     BACKUP_LIGHT_SIGNAL = "Vehicle.Body.Lights.Backup.IsOn"
 
     # acoustic cabin warning
-    # Sends frequency states: 0 = silent, 1 = slow beep, 2 = 
+    # Sends frequency states: 0 = silent, 1 = slow beep, 2 = rapid beep, 3 = solid beep
     BUZZER_SIGNAL = "Vehicle.Cabin.Infotainment.HMI.DistanceWarningChime" # TBD !!!
     
-    def __init__(self, kuksa, config):
+    def __init__(self, kuksa, config, vehicle_state):
         self.kuksa = kuksa
         self.reverse_gear_threshold = config["reverse_gear_threshold"]
         self.pdc_active = False
+        self.vehicle_state = vehicle_state
 
         # Internal states 
         self.last_action_time = 0.0
@@ -35,6 +36,13 @@ class PDCLogic:
     def is_reverse(self,gear):
         return gear < self.reverse_gear_threshold
 
+    # helper function for KUKSA if signalnot available 
+    def safe_kuksa_set(self, signal, value):
+        try:
+            self.kuksa.set(signal, value)
+        except Exception:
+            pass
+
     def trigger_intermittent_buzzer(self, current_time, interval, active_level):
         # asynchronous pulse generator to prevent blocking th ethread loop
         if current_time - self.last_action_time >= interval:
@@ -43,7 +51,7 @@ class PDCLogic:
 
             #Pulse the tone state based on toggle
             target_value = active_level if self.buzzer_toggle else 0
-            self.kuksa.set(self.BUZZER_SIGNAL, target_value)
+            self.safe_kuksa_set(self.BUZZER_SIGNAL, target_value)
 
 
     def run(self):
@@ -64,25 +72,26 @@ class PDCLogic:
             self.kuksa.set(self.BACKUP_LIGHT_SIGNAL, True)
 
             # activating rear parking sensor 
-            self.kuksa.set(self.PDC_REAR_ACTIVE_SIGNAL, True)
-            self.pdc_active = True
-            print("PDC Info: Rear praking sensor activated")
+            if not self.pdc_active:
+                self.kuksa.set(self.PDC_REAR_ACTIVE_SIGNAL, True)
+                self.pdc_active = True
+                print("PDC Info: Rear praking sensor activated")
 
         else:
-            # clean off and forcin geverything to turn off when leaving reverse gear
+            # clean off and forcing everything to turn off when leaving reverse gear
             if self.pdc_active or self.is_reverse(gear):
                 self.kuksa.set(self.BACKUP_LIGHT_SIGNAL, False)
                 self.kuksa.set(self.PDC_REAR_ACTIVE_SIGNAL, False)
-                self.kuksa.set(self.BUZZER_SIGNAL, 0) # Mute buzzer 
+                self.safe_kuksa_set(self.BUZZER_SIGNAL, 0) # Mute buzzer 
                 self.pdc_active = False
                 self.buzzer_toggle = False
                 print("PDC Info: Rear Parking sensor and backup lights deactivated")
-        return
+            return
 
         # Step 2
         # distance evaluation and mapping
         if distance_cm > 150.0:
-            self.kuksa.set(self.BUZZER_SIGNAL, 0)
+            self.safe_kuksa_set(self.BUZZER_SIGNAL, 0)
             self.buzzer_toggle = False 
             return 
         
@@ -99,7 +108,7 @@ class PDCLogic:
 
         else:
             # continious solid beep 
-            self.kuksa.set(self.BUZZER_SIGNAL, 3)
+            self.safe_kuksa_set(self.BUZZER_SIGNAL, 3)
             return 
 
         # Step 3: Non-blocking execution

@@ -19,8 +19,9 @@ class PowertrainSafetyLogic:
     GEAR_SIGNAL = "Vehicle.Powertrain.Transmission.CurrentGear"
     
     # Constructor 
-    def __init__(self, kuksa, config):
+    def __init__(self, kuksa, config, vehicle_state):
         self.kuksa = kuksa
+        self.vehicle_state = vehicle_state
 
         # load config values from yaml file
         self.GEAR_NEUTRAL = config["gear_neutral"]
