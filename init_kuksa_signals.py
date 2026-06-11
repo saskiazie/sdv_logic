@@ -45,7 +45,11 @@ def reset_vehicle_signals(kuksa, verbose=True):
     kuksa.publish("Vehicle.Body.Lights.Backup.IsOn", False)           
 
     log("--- Resetting low voltage system state...") # platzhalter für eigentliches signal 
-    kuksa.publish("Vehicle.LowVoltageSystemState", "LOCK")           
+    kuksa.publish("Vehicle.LowVoltageSystemState", "LOCK")   
+
+# sobald signale im mapping existieren 
+   # log("---Resetting ignition state...")
+   # kuksa.publish("Vehicle.Body.IgnitionState", 0)        
 
     if verbose:
         print("\n[SUCCESS] Baseline state deployed via kuksa_connection wrapper")

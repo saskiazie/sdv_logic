@@ -16,8 +16,6 @@ class AutoLock:
     DRIVER_LOCK = "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
     PASSENGER_LOCK = "Vehicle.Cabin.Door.Row1.PassengerSide.IsOpen"
 
-
-
     # Constructor (kuksa connection, speed threshold in km/h for automatic locking)   
     def __init__(self, kuksa, config, vehicle_state): # werte als konstanten zuweisen (kennen den namen und lesen werte ein) NEU
         self.kuksa = kuksa

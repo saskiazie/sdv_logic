@@ -11,6 +11,7 @@ from start_sequence import StartSequence
 from auto_lock import AutoLock
 from powertrain_safety_logic import PowertrainSafetyLogic
 from pdc_logic import PDCLogic
+from lights_logic import LightsLogic
 
 # Runs one logic module per cycle in its own thread
 def run_logic(logic_module, cycle_time=0.1):
@@ -44,7 +45,10 @@ def main():
     # this shared dictionary acts as a decentralized state crdinator between threads
     # StartSequence will unlock the vehicle system, making it available for other functions
     vehicle_state = {
-        "is_ready": False # System flag (False = Vehicle locked)
+        "is_locked": True, # System flag (False = Vehicle locked)
+        "is_unlocked": False,
+        "driver_access": False,
+        "is_ready": False,
     }
 
     # 3. Initialize logic classes (all of them)
@@ -52,6 +56,8 @@ def main():
     auto_lock = AutoLock(kuksa, config["autolock"], vehicle_state) 
     powertrain_safety_logic = PowertrainSafetyLogic(kuksa, config["powertrain"], vehicle_state)
     pdc_logic = PDCLogic(kuksa, config["pdc"], vehicle_state)
+    lights_logic = LightsLogic(kuksa, vehicle_state)
+
         
     # 4. Grouping modules for automated threading     
     logic_modules = [
@@ -59,6 +65,7 @@ def main():
         auto_lock,
         powertrain_safety_logic,
         pdc_logic,
+        lights_logic,
     ]   
 
     print ("SDV Logic Code started") # Control message

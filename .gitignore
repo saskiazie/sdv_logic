@@ -8,4 +8,5 @@ __pycache__/
 venv/
 .venv/
 
-test_config.py
+test_files/test_config.py
+test_files/test_lights_logic.py
