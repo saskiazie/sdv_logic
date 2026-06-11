@@ -55,6 +55,10 @@ class PDCLogic:
 
 
     def run(self):
+
+        if not self.vehicle_state.get("is_ready", False):
+            return
+
         current_time = time.time()
 
         # Read current values
@@ -69,19 +73,19 @@ class PDCLogic:
         # Step 1: System activation and backup light 
         if is_engine_running and self.is_reverse(gear):
             # Turn on reverse light 
-            self.kuksa.set(self.BACKUP_LIGHT_SIGNAL, True)
+            self.kuksa.publish(self.BACKUP_LIGHT_SIGNAL, True)
 
             # activating rear parking sensor 
             if not self.pdc_active:
-                self.kuksa.set(self.PDC_REAR_ACTIVE_SIGNAL, True)
+                self.kuksa.publish(self.PDC_REAR_ACTIVE_SIGNAL, True)
                 self.pdc_active = True
                 print("PDC Info: Rear praking sensor activated")
 
         else:
             # clean off and forcing everything to turn off when leaving reverse gear
             if self.pdc_active or self.is_reverse(gear):
-                self.kuksa.set(self.BACKUP_LIGHT_SIGNAL, False)
-                self.kuksa.set(self.PDC_REAR_ACTIVE_SIGNAL, False)
+                self.kuksa.publish(self.BACKUP_LIGHT_SIGNAL, False)
+                self.kuksa.publish(self.PDC_REAR_ACTIVE_SIGNAL, False)
                 self.safe_kuksa_set(self.BUZZER_SIGNAL, 0) # Mute buzzer 
                 self.pdc_active = False
                 self.buzzer_toggle = False

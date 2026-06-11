@@ -8,10 +8,15 @@ class AutoLock:
 
     # Input Signals
     SPEED_SIGNAL = "Vehicle.Speed"
+    GEAR_SIGNAL = "Vehicle.Powertrain.Transmission.CurrentGear"
+    GEAR_PARK = 126
+    GEAR_NEUTRAL = 0
 
     # Output Signals
     DRIVER_LOCK = "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
     PASSENGER_LOCK = "Vehicle.Cabin.Door.Row1.PassengerSide.IsOpen"
+
+
 
     # Constructor (kuksa connection, speed threshold in km/h for automatic locking)   
     def __init__(self, kuksa, config, vehicle_state): # werte als konstanten zuweisen (kennen den namen und lesen werte ein) NEU
@@ -21,6 +26,7 @@ class AutoLock:
 
         # Internal state to prevent repeated locking elements 
         self.auto_locked = False
+        self.door_warning_active = False
 
     # Function for combining all available doors (extendable)
     # value = False -> doors closed
@@ -31,17 +37,23 @@ class AutoLock:
 
     # Executes the speed-dependant lockign logic
     def run(self):
+        
+        if not self.vehicle_state.get("is_ready", False):
+            return
+
         # Reading Vehicle Speed from kuksa
         try:
             speed = float(self.kuksa.get(self.SPEED_SIGNAL, 0))
             driver_door = bool(self.kuksa.get(self.DRIVER_LOCK, False))
             passenger_door = bool(self.kuksa.get(self.PASSENGER_LOCK, False))
+            gear = int(self.kuksa.get(self.GEAR_SIGNAL, self.GEAR_PARK))
+
         except Exception as e:
             print("Autolock Error: Failed to fetch data from Broker: {e}")
             return 
 
         # Lock logic: if speed exceeds the threshold and car is not already locked - lock doors 
-        if speed > self.threshold:
+        if speed > self.threshold and gear not in [self.GEAR_PARK, self.GEAR_NEUTRAL]:
             
             # Initial automatic lock when passing speed limit
             if not self.auto_locked:
@@ -53,10 +65,14 @@ class AutoLock:
             # if any doors interface reports an open state while moving, overrid eit instantly 
             elif driver_door is True or passenger_door is True:
                 self.lock_all_doors(False)
-                print(f"Autolock Safety Warning: Door opening attempt blocked while moving at {speed} km/h")
 
+                if not self.door_warning_active:
+                    print(f"Autolock Safety Warning: Door opening attempt blocked while moving at {speed} km/h")
+                    self.door_warning_active = True
         else:
             # Reset trigger flag once the vehicle drops below the threshold         
             if self.auto_locked:
                 print("Autolock Info: Vehicle stopped or below threshold -> Autolock disarmed")
                 self.auto_locked = False 
+
+            self.door_warning_active = False    

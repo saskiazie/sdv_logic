@@ -1,4 +1,5 @@
 import time # for waiting time
+from init_kuksa_signals import reset_vehicle_signals
 
 class StartSequence:
     '''
@@ -14,7 +15,7 @@ class StartSequence:
 
     # Input signals
     # Trigger Unlock SDV with opening PassengerSide Row1
-    UNLOCK_REQUEST_SIGNAL = "Vehicle.Cabin.Door.Row1.PassengerSide.IsOpen" # temporary # Vehicle.Body.Locks.IsLocked ??? existiert das 
+    UNLOCK_REQUEST_SIGNAL = "Vehicle.Cabin.Door.Row1.PassengerSide.IsOpen" # just temporary # Vehicle.Body.Locks.IsLocked ??? existiert das 
     DOOR_OPEN_SIGNAL = "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
 
 # Added Signal (?) VSS Actuator ignition switch state (uint8 Enum) - NEW!!
@@ -34,6 +35,8 @@ class StartSequence:
         self.unlock_triggered = False # flag for unlock vehicle
         self.last_door_open = False
         self.ignition_on_triggered = False # Flag to ensure for jsut running once
+        self.driver_entry_done = False
+        self.ignition_missing_entry_warning_printed = False
 
         # Internal states for asynchronous hazard blinking withput blocking thread
         self.blink_active = False
@@ -88,13 +91,12 @@ class StartSequence:
             print("StartSequence Info: Unlock detected")
             self.unlock_triggered = True
 
+                        # clear old simulation values from previous test 
+            reset_vehicle_signals(self.kuksa, verbose=False)
+
             # Turn on interior light (ambient light)
             self.kuksa.publish(self.INTERIOR_LIGHT_SIGNAL, True)
             self.unlock_done = True
-
-            # schaltet dann frei für aklle
-            self.vehicle_state["is_ready"] = True
-            print("StartSequence Info: Vehicle state set to READY")
 
             # Arm the blinking function by setting start time and active flag
             self.blink_active = True
@@ -108,6 +110,9 @@ class StartSequence:
         # Driver door opened 
         if door_open is True and not self.last_door_open and self.unlock_done:
             print("StartSequence Info: Driver door opened --> Access granted + waiting for ignition") 
+            self.driver_entry_done = True
+            self.ignition_missing_entry_warning_printed = False
+            self.kuksa.publish(self.DOOR_OPEN_SIGNAL, False) # reset of door status 
 
         # Step 3: Ignition and Engine startup  
         if self.unlock_done:
@@ -121,7 +126,18 @@ class StartSequence:
 
             # 3 == ON in string
             elif ignition_state == "ON" and not self.ignition_on_triggered:   #== 3 and not self.ignition_on_triggered:
+                if not self.driver_entry_done:
+                    if not self.ignition_missing_entry_warning_printed:
+                        print("StartSequence Warning: Ignition ignored - driver entry missing") 
+                        self.ignition_missing_entry_warning_printed = True
+                    return
+                
                 print("StartSequence Info: Ignition State is ON (3) -> Triggered Check control simulation") 
+
+                # schaltet dann frei für alle
+                self.vehicle_state["is_ready"] = True
+                print("StartSequence Info: Vehicle state set to READY")
+
                 self.ignition_on_triggered = True
 
             # as long as ignition is on - controls engine 

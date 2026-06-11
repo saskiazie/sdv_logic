@@ -32,12 +32,12 @@ class PowertrainSafetyLogic:
         self.moving_speed_threshold = config["moving_speed_threshold_kmh"]
 
         # runtime states
-        self.last_valid_gear = self.GEAR_NEUTRAL
+        self.last_valid_gear = self.GEAR_PARK
         self.last_warning = None
-        self.last_valid_speed = 0
+        self.last_valid_speed = 0.0
 
     def is_forward(self, gear): # check for forward driving state
-        return gear > self.GEAR_NEUTRAL or gear == self.GEAR_DRIVE
+        return gear == self.GEAR_DRIVE  # gear > self.GEAR_NEUTRAL or 
 
     def is_reverse(self, gear): # check for reverse driving state 
         return gear < self.reverse_gear_threshold
@@ -49,6 +49,11 @@ class PowertrainSafetyLogic:
 
 
     def run(self):
+
+        if not self.vehicle_state.get("is_ready", False):
+            return
+
+
         # reading current values 
         speed = float(self.kuksa.get(self.SPEED_SIGNAL,0))
         gear = int(self.kuksa.get(self.GEAR_SIGNAL, self.GEAR_NEUTRAL))
@@ -62,15 +67,13 @@ class PowertrainSafetyLogic:
           #      "invalid_acceleration",
           #      "Safety: Acceleration not allowed in current gear, switch to Drive"
           #  )
-        if (
-            not (self.is_forward(gear) or self.is_reverse(gear))
-            and speed > self.last_valid_speed
-        ):
-            self.kuksa.publish(self.SPEED_SIGNAL, self.last_valid_speed)
-            self.print_warning_once(
-                "invalid_acceleration",
-                "Safety: Acceleration not allowed in current gear, switch to Drive"
-            )
+        if not (self.is_forward(gear) or self.is_reverse(gear)):
+            if speed > self.last_valid_speed:
+                self.kuksa.publish(self.SPEED_SIGNAL, self.last_valid_speed)
+                self.print_warning_once(
+                    "invalid_acceleration",
+                    "Safety: Acceleration not allowed in current gear, switch to Drive"
+                )
 
         # Store last valid speed only if gear is valid
         if self.is_forward(gear) or self.is_reverse(gear):
@@ -80,17 +83,31 @@ class PowertrainSafetyLogic:
         # Stores last valid gear 
         if self.is_forward(gear) or self.is_reverse(gear):
             self.last_valid_gear = gear
+            self.last_valid_speed = speed
 
         # Prevention of switching gears to N or P while driving 
         if speed > 0 and gear == self.GEAR_PARK: # Prevent switching to parking while driving 
-            #self.kuksa.publish(self.GEAR_SIGNAL, self.last_valid_gear)
-            self.print_warning_once(
-                "park_while_driving",
-                "Safety warning: Park selected while driving not allowed"
-            )
+            
+            if self.last_valid_gear == self.GEAR_PARK:        
+                self.kuksa.publish(self.SPEED_SIGNAL, self.last_valid_speed)
+                #self.kuksa.publish(self.GEAR_SIGNAL, self.last_valid_gear)
+                #self.kuksa.publish(self.SPEED_SIGNAL, 0.0)
+                self.print_warning_once(
+                    "invalid acceleration",
+                    "Safety warning: Acceleration not allowed in Park"
+                )
+                return
+            else:
+                self.kuksa.publish(self.GEAR_SIGNAL, self.last_valid_gear)
+                self.print_warning_once(
+                    "park_while_driving",
+                    "Safety warning: Shift to Park while vehicle is moving not allowed"
+                    )
+                return
            
         elif speed > 0 and gear == self.GEAR_NEUTRAL:  # Prevent switching to neutral while driving 
-            #self.kuksa.publish(self.GEAR_SIGNAL, self.last_valid_gear)
+            self.kuksa.publish(self.GEAR_SIGNAL, self.last_valid_gear)
+            #self.kuksa.publish(self.SPEED_SIGNAL, 0.0)
             self.print_warning_once(
                 "neutral_while_driving",
                 "Safety warning: Neutral selected while driving not allowed"
