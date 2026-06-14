@@ -13,6 +13,8 @@ from powertrain_safety_logic import PowertrainSafetyLogic
 from pdc_logic import PDCLogic
 from lights_logic import LightsLogic
 
+from unreal_sender import UnrealSender
+
 # Runs one logic module per cycle in its own thread
 def run_logic(logic_module, cycle_time=0.1):
     while True:
@@ -58,6 +60,8 @@ def main():
     pdc_logic = PDCLogic(kuksa, config["pdc"], vehicle_state)
     lights_logic = LightsLogic(kuksa, vehicle_state)
 
+    unreal_sender = UnrealSender(kuksa, vehicle_state, port=7010)
+
         
     # 4. Grouping modules for automated threading     
     logic_modules = [
@@ -66,6 +70,7 @@ def main():
         powertrain_safety_logic,
         pdc_logic,
         lights_logic,
+        unreal_sender,
     ]   
 
     print ("SDV Logic Code started") # Control message
