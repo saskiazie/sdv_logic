@@ -22,6 +22,4 @@ class KuksaConnection:
                 self.client.set_target_values({signal: Datapoint(value=value)})                
 
         def publish(self, signal, value):
-                self.client.set_current_values({
-                        signal: Datapoint(value=value)
-                })
+                self.client.set_current_values({signal: Datapoint(value=value)})

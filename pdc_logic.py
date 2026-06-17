@@ -79,7 +79,7 @@ class PDCLogic:
             if not self.pdc_active:
                 self.kuksa.publish(self.PDC_REAR_ACTIVE_SIGNAL, True)
                 self.pdc_active = True
-                print("PDC Info: Rear praking sensor activated")
+                print("PDC Info: Rear parking sensor activated")
 
         else:
             # clean off and forcing everything to turn off when leaving reverse gear

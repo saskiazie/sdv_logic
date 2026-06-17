@@ -1,4 +1,3 @@
-
 class AutoLock:
     '''
     Handles the speed-dependant automatic door looking logic
@@ -30,8 +29,8 @@ class AutoLock:
     # value = False -> doors closed
     # value = True -> doors open
     def set_all_doors_locked(self, locked):
-        self.kuksa.set(self.DRIVER_LOCK, locked)
-        self.kuksa.set(self.PASSENGER_LOCK, locked)
+        self.kuksa.publish(self.DRIVER_LOCK, locked)
+        self.kuksa.publish(self.PASSENGER_LOCK, locked)
 
     # Executes the speed-dependant lockign logic
     def run(self):
@@ -47,7 +46,7 @@ class AutoLock:
             gear = int(self.kuksa.get(self.GEAR_SIGNAL, self.GEAR_PARK))
 
         except Exception as e:
-            print("Autolock Error: Failed to fetch data from Broker: {e}")
+            print(f"Autolock Error: Failed to fetch data from Broker: {e}")
             return 
 
         # Lock logic: if speed exceeds the threshold and car is not already locked - lock doors 

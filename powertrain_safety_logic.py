@@ -37,6 +37,7 @@ class PowertrainSafetyLogic:
         self.last_valid_speed = 0.0
 
     def is_forward(self, gear): # check for forward driving state
+        
         return gear == self.GEAR_DRIVE  # gear > self.GEAR_NEUTRAL or 
 
     def is_reverse(self, gear): # check for reverse driving state 

@@ -25,17 +25,25 @@ class UnrealSender:
         self.port = port
 
         # Prepare TCP server socket
-        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server.bind((self.host, self.port))
-        self.server.listen(1)
-        self.server.setblocking(False) # non blocking (thread safe)
-
         self.conn = None
-        print(f"UnrealSender: Waiting for Unreal connection on port {self.port}")
+        self.server = None
+        try:
+            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.server.bind((self.host, self.port))
+            self.server.listen(1)
+            self.server.setblocking(False) # non blocking (thread safe)
+            print(f"UnrealSender: Waiting for Unreal connection on port {self.port}")
+
+        except OSError as e:
+            print(f"Unreal Sender: Port {self.port} already in use - deactivated UnrealSender")
+            self.server = None
 
     def run(self):
         # 1. i fno connection yet: try to accept one 
+        if self.server is None:
+            return
+                
         if self.conn is None:
             try:
                 self.conn, addr = self.server.accept()

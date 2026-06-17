@@ -2,7 +2,7 @@ import time
 import threading
 import traceback
 
-# Custom utility odules for externalized architecture 
+# Custom utility modules for externalized architecture 
 from config_loader import load_configs # config files 
 from kuksa_connection import KuksaConnection
 
@@ -13,6 +13,7 @@ from powertrain_safety_logic import PowertrainSafetyLogic
 from pdc_logic import PDCLogic
 from lights_logic import LightsLogic
 
+from init_kuksa_signals import reset_vehicle_signals 
 from unreal_sender import UnrealSender
 
 # Runs one logic module per cycle in its own thread
@@ -43,6 +44,12 @@ def main():
         print("Program stopped because KUKSA is not available!")
         return
     
+    # 3. Reset all relevant vehicle signals to a defined baseline state at the start of the program
+    reset_vehicle_signals(kuksa, verbose=False) # sets a defined baseline state for all relevant signals
+
+    kuksa.publish("Vehicle.Body.Access.KeyFob.IsUnlocked", False) # ensure locked state at the start 
+    kuksa.publish("Vehicle.Body.IgnitionState", 0) # ensure ignition off
+
     # Central vehicle state management 
     # this shared dictionary acts as a decentralized state crdinator between threads
     # StartSequence will unlock the vehicle system, making it available for other functions
@@ -82,8 +89,8 @@ def main():
 
         # check if the module has an individual cycle time parameter 
         # allows individual control (some modules can run faster than others if necessary)
-        if hasattr(logic_module, 'config') and isinstance (logic_module.config, dict):
-            chosen_cycle_time = logic_module.config.get("cycle_time", chosen_cycle_time)
+        # if hasattr(logic_module, 'config') and isinstance (logic_module.config, dict):
+        #    chosen_cycle_time = logic_module.config.get("cycle_time", chosen_cycle_time)
 
         # Spawn the thread with the final evaluated timing parameter 
         threading.Thread(

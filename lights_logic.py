@@ -48,23 +48,6 @@ class LightsLogic:
         # Buzzer timer
         self.buzzer_active = False
         self.buzzer_start_time = 0.0
-
-    # main loop
-    def run(self):
-        current_time = time.time()
-
-        self.handle_double_blink(current_time)
-        self.handle_buzzer_timeout(current_time)
-
-        if self.vehicle_state.get("is_unlocked", False):
-            self.handle_unlock(current_time)    
-
-        if self.vehicle_state.get("is_ready", False):
-            self.handle_ready()
-
-        if self.vehicle_state.get("is_locked", False):
-            self.handle_lock(current_time)
-
    
    # double blink hazard lights
     def handle_double_blink(self, current_time):
@@ -199,115 +182,18 @@ class LightsLogic:
         print( "Lights Info: Lock feedback activated" )
 
 
-'''
-
-        # internal state flags
-        self.unlock_lightning_done = False
-        self.ready_lighting_done = False
-        self.lock_feedback_done = False
-
-        # non blocking timers 
-        self.unlock_feedback_start_time = None
-        self.lock_feedback_start_time = None
-
-        # Timing configuration
-        self.unlock_light_duration = 3.0
-        self.lock_light_duration = 2.0
-        self.hazard_feedback_duration = 1.0
-        self.buzzer_feedback_duration = 0.2
-
+    # main loop
     def run(self):
         current_time = time.time()
 
+        self.handle_double_blink(current_time)
+        self.handle_buzzer_timeout(current_time)
+
         if self.vehicle_state.get("is_unlocked", False):
-            self._handle_unlock_lightning(current_time)
+            self.handle_unlock(current_time)    
 
         if self.vehicle_state.get("is_ready", False):
-            self._handle_ready_lightning()
+            self.handle_ready()
 
         if self.vehicle_state.get("is_locked", False):
-            self._handle_lock_feedback(current_time)
-
-    def _handle_unlock_lightning(self, current_time):
-        if not self.unlock_lightning_done:
-            self.kuksa.publish(self.LIGHT_SWITCH_SIGNAL, "OFF")
-            self.kuksa.publish(self.INTERIOR_LIGHT_SIGNAL, True)
-            self.kuksa.publish(self.HAZARD_SIGNAL, True)
-
-            self.unlock_feedback_start_time = current_time
-            self.unlock_lightning_done = True
-            self.lock_feedback_done = False
-
-            print("Lights Info: Unlock feedback detected")
-
-        elapsed = current_time - self.unlock_feedback_start_time
-
-        if elapsed >= self.hazard_feedback_duration:
-            self.kuksa.publish(self.HAZARD_SIGNAL, False)
-
-        if elapsed >= self.unlock_light_duration:
-            self.kuksa.publish(self.INTERIOR_LIGHT_SIGNAL, False)
-
-    def _handle_ready_lightning(self):
-        if self.ready_lighting_done:
-            return 
-
-        self.kuksa.publish(self.LIGHT_SWITCH_SIGNAL, "DAYTIME_RUNNING_LIGHTS")
-
-        self.kuksa.publish(self.DAYTIME_RUNNING_LIGHT_SIGNAL, True)
-        self.kuksa.publish(self.INTERIOR_LIGHT_SIGNAL, False)
-        self.kuksa.publish(self.HAZARD_SIGNAL, False)              
-
-        self.ready_lighting_done = True
-        print("Lights Info: READY lightning activated")
-
-    def _handle_lock_feedback(self, current_time):
-        if not self.lock_feedback_done:
-            self.kuksa.publish(self.LIGHT_SWITCH_SIGNAL, "OFF")
-
-            # Lock confirmation feedback 
-            self.kuksa.publish(self.HAZARD_SIGNAL, True)
-            self.kuksa.publish(self.BUZZER_SIGNAL, 3)
-
-            # vehicle is closed, so interior light must be off
-            self.kuksa.publish(self.INTERIOR_LIGHT_SIGNAL, False)
-
-            # exterior driving lights off
-            self.kuksa.publish(self.DAYTIME_RUNNING_LIGHT_SIGNAL, False)
-            self.kuksa.publish(self.LOW_BEAM_SIGNAL, False)
-
-            self.lock_feedback_start_time = current_time
-            self.lock_feedback_done = True
-
-            # reset unlock / ready light states 
-            self.unlock_lightning_done = False
-            self.ready_lighting_done = False
-
-            print("Lights Info: Lock feedback activated")
-
-        elapsed = current_time - self.lock_feedback_start_time
-
-        if elapsed >= self.buzzer_feedback_duration:
-            self.kuksa.publish(self.BUZZER_SIGNAL, 0)                                                     
-
-        if elapsed >= self.lock_light_duration:
-            self.kuksa.publish(self.HAZARD_SIGNAL, False)       
-
-    def reset_lights(self):
-        self.kuksa.publish(self.LIGHT_SWITCH_SIGNAL, "OFF")
-        self.kuksa.publish(self.DAYTIME_RUNNING_LIGHT_SIGNAL, False)
-        self.kuksa.publish(self.LOW_BEAM_SIGNAL, False)
-        self.kuksa.publish(self.INTERIOR_LIGHT_SIGNAL, False)
-        self.kuksa.publish(self.HAZARD_SIGNAL, False)
-        self.kuksa.publish(self.BUZZER_SIGNAL, False)                        
-
-        self.unlock_lightning_done = False
-        self.ready_lightning_done = False
-        self.lock_feedback_done = False
-
-        self.unlock_feedback_start_time = None
-        self.lock_feedback_start_time = None
-
-        print("Lights Info: Lightning system reset")                                                                                   
-
-'''
+            self.handle_lock(current_time)
