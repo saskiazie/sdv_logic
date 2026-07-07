@@ -12,6 +12,7 @@ from auto_lock import AutoLock
 from powertrain_safety_logic import PowertrainSafetyLogic
 from pdc_logic import PDCLogic
 from lights_logic import LightsLogic
+from indicator_logic import IndicatorLogic
 
 from init_kuksa_signals import reset_vehicle_signals 
 from unreal_sender import UnrealSender
@@ -66,7 +67,7 @@ def main():
     powertrain_safety_logic = PowertrainSafetyLogic(kuksa, config["powertrain"], vehicle_state)
     pdc_logic = PDCLogic(kuksa, config["pdc"], vehicle_state)
     lights_logic = LightsLogic(kuksa, vehicle_state)
-
+    indicator_logic = IndicatorLogic(kuksa, vehicle_state)
     unreal_sender = UnrealSender(kuksa, vehicle_state, port=7010)
 
         
@@ -77,6 +78,7 @@ def main():
         powertrain_safety_logic,
         pdc_logic,
         lights_logic,
+        indicator_logic,
         unreal_sender,
     ]   
 
@@ -85,7 +87,12 @@ def main():
     # 5. Multi threading Execution
     for logic_module in logic_modules:
         # determine base system cycle time from YAML configs (fallback 0.1s)
-        chosen_cycle_time = config.get("system", {}).get("cycle_time", 0.1)
+        chosen_cycle_time = config.get("system", {}).get("cycle_time_s", 0.1)
+
+        # Fast lane modules (LightsLogic, UnrealSender, IndicatorLogic) need a faster cycle time for smooth operation
+        if isinstance(logic_module,(LightsLogic, UnrealSender, IndicatorLogic)):
+            chosen_cycle_time = 0.02 # faster cycle time for lights and unreal sender
+
 
         # check if the module has an individual cycle time parameter 
         # allows individual control (some modules can run faster than others if necessary)

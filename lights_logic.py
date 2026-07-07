@@ -51,6 +51,8 @@ class LightsLogic:
    
    # double blink hazard lights
     def handle_double_blink(self, current_time):
+        if self.vehicle_state.get("hazard_enabled", False):
+            return # hazard is active, let the indicator logic handle it
         if not self.feedback_active:
             return 
 

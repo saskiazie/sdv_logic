@@ -17,6 +17,8 @@ class UnrealSender:
     LOWBEAM_SIGNAL = "Vehicle.Body.Lights.Beam.Low.IsOn"
     INTERIOR_SGNAL = "Vehicle.Cabin.Light.AmbientLight.IsLightOn"
     PDC_SIGNAL = "Vehicle.ADAS.PDC.Rear.Distance"
+    TURNL_SIGNAL = "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling"
+    TURNR_SIGNAL = "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling"
 
     def __init__(self, kuksa, vehicle_state, host = "0.0.0.0", port = 7010):
         self.kuksa = kuksa
@@ -54,22 +56,27 @@ class UnrealSender:
             return
 
         # 2. Read values from KUKSa (read only)
+        sigs = [self.SPEED_SIGNAL, self.GEAR_SIGNAL, self.HAZARD_SIGNAL, self.BACKUP_SIGNAL,
+                self.DRL_SIGNAL, self.LOWBEAM_SIGNAL, self.INTERIOR_SGNAL, self.PDC_SIGNAL, self.TURNL_SIGNAL, self.TURNR_SIGNAL]
         try:
-            speed = float(self.kuksa.get(self.SPEED_SIGNAL, 0))
-            gear = int(self.kuksa.get(self.GEAR_SIGNAL, 126))
-            hazard = bool(self.kuksa.get(self.HAZARD_SIGNAL, False))
-            backup = bool(self.kuksa.get(self.BACKUP_SIGNAL, False))
-            drl = bool(self.kuksa.get(self.DRL_SIGNAL, False))
-            lowbeam = bool(self.kuksa.get(self.LOWBEAM_SIGNAL, False))
-            interior = bool(self.kuksa.get(self.INTERIOR_SGNAL, False))
-            pdc = float(self.kuksa.get(self.PDC_SIGNAL, 999.0))
+            vals = self.kuksa.get_many(sigs, default=None)
+            speed = float(vals[self.SPEED_SIGNAL] or 0)
+            gear = int(vals[self.GEAR_SIGNAL] or 126)
+            hazard = bool(vals[self.HAZARD_SIGNAL] or False)
+            backup = bool(vals[self.BACKUP_SIGNAL] or False)
+            drl = bool(vals[self.DRL_SIGNAL] or False)
+            lowbeam = bool(vals[self.LOWBEAM_SIGNAL] or False)
+            interior = bool(vals[self.INTERIOR_SGNAL] or False)
+            pdc = float(vals[self.PDC_SIGNAL] or 999.0)
+            turnl = bool(vals[self.TURNL_SIGNAL] or False)
+            turnr = bool(vals[self.TURNR_SIGNAL] or False)
         except Exception as e:
             print(f"UnrealSender Error while reading: {e}")
             return
         
         # 3. Build message (bools as 0/1 for easy parsing in Unreal)
         msg = (f"{speed:0.2f};{gear};{int(hazard)};{int(backup)};"
-               f"{int(drl)};{int(lowbeam)};{int(interior)};{pdc:0.1f}|")
+               f"{int(drl)};{int(lowbeam)};{int(interior)};{pdc:0.1f};{int(turnl)};{int(turnr)}|")
         
         # 4. Send - reset cleanly on connection loss
         try:

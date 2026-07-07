@@ -23,3 +23,7 @@ class KuksaConnection:
 
         def publish(self, signal, value):
                 self.client.set_current_values({signal: Datapoint(value=value)})
+
+        def get_many(self, signals, default=None):
+                result = self.client.get_current_values(signals)
+                return {signal: getattr(result.get(signal), "value", default) for signal in signals}        
