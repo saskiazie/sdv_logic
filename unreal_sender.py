@@ -50,6 +50,7 @@ class UnrealSender:
             try:
                 self.conn, addr = self.server.accept()
                 self.conn.setblocking(False)
+                self.conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1) # disable Nagle's algorithm for low latency
                 print(f"UnrealSender: Unreal connected ({addr})")
             except BlockingIOError:
                 return # no client yet, try again next cycle

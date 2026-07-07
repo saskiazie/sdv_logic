@@ -125,7 +125,8 @@ class LightsLogic:
         # Automatically switch off interior light
         if (self.interior_light_start_time and current_time - self.interior_light_start_time >= self.INTERIOR_LIGHT_TIMEOUT):
             self.kuksa.publish(self.INTERIOR_LIGHT_SIGNAL, False)
-
+            self.interior_light_start_time = None           
+    
     # Ready state
 
     def handle_ready(self):
