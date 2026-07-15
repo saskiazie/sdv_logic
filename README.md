@@ -11,7 +11,7 @@ finished vehicle states over TCP and contains no logic of its own.
 
 ## System Requirements
 
-- Linux (Ubuntu 20.04 / VirtualBox VM recommended)
+- Linux (Ubuntu 22.04 / VirtualBox VM recommended)
 - Python 3.8+
 - Docker
 - Unreal Engine 5 with a TCP socket plugin (optional - the logic runs without it)
@@ -139,7 +139,7 @@ sudo apt install -y graphviz
 
 ### Clone repository
 ```bash
-git clone <repository-url> && cd sdv_logic
+git clone https://github.com/saskiazie/sdv_logic.git && cd sdv_logic
 ```
 
 ---
@@ -308,7 +308,7 @@ kuksa:
 
 # autolock_config.yaml
 autolock:
-  threshold_kmh: 20
+  threshold_kmh: 15
   gear_park: 126        # optional, falls back to the VSS default
   gear_neutral: 0       # optional
 
