@@ -1,0 +1,54 @@
+@startuml sequence_startup
+' Sequence diagram: from key fob unlock to READY.
+' Answers: which module reacts when, and in which order?
+' Note: the modules are NOT called by each other - they poll the
+' broker and the shared vehicle_state in their own threads.
+
+skinparam defaultFontName sans-serif
+skinparam shadowing false
+
+actor Driver as D
+participant "KUKSA\nDatabroker" as K
+participant "StartSequence\n(0.1 s)" as SS
+participant "vehicle_state\n(shared dict)" as VS
+participant "LightsLogic\n(0.02 s)" as LL
+participant "UnrealSender\n(0.02 s)" as US
+participant "Unreal" as U
+
+== Unlock ==
+D -> K : KeyFob.IsUnlocked = true
+SS -> K : get(KeyFob)
+SS -> VS : is_unlocked = true\nis_locked = false
+LL -> VS : read flags
+LL -> K : publish LightSwitch = OFF\nAmbientLight = true
+LL -> K : publish_many(hazard + left + right)\ndouble blink, 2x 0.3 s
+US -> K : get_many(10 signals)
+US -> U : frame "0.00;126;1;0;...|"
+note right of LL : interior light off\nafter 5 s (once)
+
+== Driver access ==
+D -> K : DriverSide.IsLocked = false
+SS -> K : get(DriverSide.IsLocked)
+SS -> VS : driver_access = true
+
+== Ignition ==
+D -> K : IgnitionState = 3 (ON)
+SS -> K : get(IgnitionState)
+alt driver_access == false
+  SS -> SS : warning (printed once),\nignition ignored
+else driver_access == true
+  SS -> VS : is_ready = true
+  SS -> K : publish EngineRunning = true
+end
+LL -> VS : read is_ready
+LL -> K : publish LightSwitch = DRL\nRunning.IsOn = true
+US -> U : frame with drl = 1
+
+note over VS
+  is_ready = true unlocks
+  AutoLock, PDCLogic and
+  PowertrainSafetyLogic
+  (guard at the top of run()).
+end note
+
+@enduml

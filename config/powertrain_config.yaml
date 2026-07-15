@@ -6,4 +6,4 @@ powertrain:
 
 # thresholds
   reverse_gear_threshold: 0
-  moving_speed_threshold_kmh: 0
+  moving_speed_threshold_kmh: 0 # any speed is moving

@@ -1,12 +1,25 @@
 # Diese Dateien nicht mit hochladen bei github
 
+# Python environment
 venv/
+.venv/
 __pycache__/
 *.pyc
 .vscode/
 
-venv/
-.venv/
-
+# Test- und Demo-Skripte (nicht Teil der Architektur)
 test_files/test_config.py
 test_files/test_lights_logic.py
+demo_drive.py
+dummy_sender.py
+
+# Backups
+*.bk
+*.backup.json
+
+# Generierte Diagramme (Quellen liegen in docs/, Bilder in docs/img/)
+/classes_*.png
+/classes_*.svg
+/packages_*.png
+/packages_*.svg
+out/

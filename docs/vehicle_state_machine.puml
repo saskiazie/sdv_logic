@@ -1,0 +1,48 @@
+@startuml vehicle_state_machine
+' State machine of the SDV start sequence (start_sequence.py)
+' States = combinations of the vehicle_state flags,
+' transitions = KUKSA signal changes evaluated in run().
+
+hide empty description
+skinparam defaultFontName sans-serif
+
+[*] --> LOCKED
+
+state LOCKED
+LOCKED : is_locked = true
+LOCKED : entry / LightsLogic lock feedback
+LOCKED : (lights off, double blink, chime)
+
+state UNLOCKED
+UNLOCKED : is_unlocked = true
+UNLOCKED : entry / LightsLogic unlock feedback
+UNLOCKED : (interior light 5 s, double blink)
+
+state DRIVER_ACCESS
+DRIVER_ACCESS : driver_access = true
+DRIVER_ACCESS : waiting for ignition
+
+state READY
+READY : is_ready = true
+READY : entry / engine start + DRL on
+READY : enables AutoLock, PDC and
+READY : PowertrainSafety (is_ready guard)
+
+LOCKED --> UNLOCKED : KeyFob.IsUnlocked = true
+UNLOCKED --> DRIVER_ACCESS : driver door\nIsLocked = false
+DRIVER_ACCESS --> READY : IgnitionState = ON (3)
+
+UNLOCKED --> UNLOCKED : IgnitionState = ON\n[no driver access]\n/ warning (once), ignored
+
+READY --> DRIVER_ACCESS : IgnitionState = OFF/LOCK\n/ engine stopped
+note on link
+  driver_entry_done stays true:
+  re-ignition returns directly
+  to READY
+end note
+
+UNLOCKED --> LOCKED : KeyFob = false
+DRIVER_ACCESS --> LOCKED : KeyFob = false
+READY --> LOCKED : KeyFob = false\n/ engine stopped
+
+@enduml
