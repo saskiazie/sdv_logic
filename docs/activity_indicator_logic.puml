@@ -1,0 +1,67 @@
+@startuml activity_indicator_logic
+' Activity diagram of IndicatorLogic.run().
+' Answers: what happens inside one 0.02 s cycle of the blinker logic?
+' The step numbers match the comments in indicator_logic.py.
+
+skinparam defaultFontName sans-serif
+skinparam shadowing false
+
+start
+
+:1. get_many(hazard, left, right)\nswitch signals (driver intent);
+
+if (read failed?) then (yes)
+  :log error;
+  stop
+else (no)
+endif
+
+if (1a. hazard switched OFF\nin this cycle?) then (yes)
+  :clear left/right switches\npublish(LEFT/RIGHT_SWITCH, false);
+  note right
+    design decision:
+    hazard off = everything off
+  end note
+else (no)
+endif
+
+if (1b. left AND right\nboth on, no hazard?) then (yes)
+  :freshly pressed switch wins,\npublish(loser switch, false);
+  note right: mimics the mechanical\ninterlock of a real stalk
+else (no)
+endif
+
+if (2. hazard on?) then (yes)
+  :left = right = true;
+else (no)
+endif
+
+:set vehicle_state["hazard_enabled"];
+
+:3. build request dict\n{hazard, left, right -> bool};
+
+if (4. any channel active?) then (yes)
+  if (first activation?) then (yes)
+    :blink_state = True\nreset clock;
+  elseif (BLINK_PERIOD elapsed?) then (yes)
+    :toggle blink_state\nlast_toggle += 0.333 s;
+    if (still behind\n(thread stall)?) then (yes)
+      :catch-up guard:\nlast_toggle = now;
+    endif
+  endif
+else (no)
+endif
+
+:5. collect updates:\nactive -> blink_state\njust switched off -> false;
+
+:publish_many(updates)\nONE atomic gRPC call;
+note right
+  left/right can never
+  drift apart
+end note
+
+:prev_request = request;
+
+stop
+
+@enduml

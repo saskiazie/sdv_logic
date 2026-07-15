@@ -1,88 +1,127 @@
+from kuksa_connection import KuksaConnection
+
 class PowertrainSafetyLogic:
+    '''
+    Safety rules for the vehicle powertrain.
 
-# Gear Logic Defs
-# gear < 0 - Reverse
-# gear = 0 - Neutral
-# gear > 0 - Forward
-# 127 - special drive case
-# 126 - Park 
+    Purpose:
+        Validates the gear selection against the current motion state.
+        Invalid gear changes while moving (Park/Neutral) are corrected
+        by restoring the last valid driving gear; states that cannot be
+        corrected are reported with a warning.
 
-    # Input Signals
+    Input signals:
+        Vehicle.Speed
+        Vehicle.Powertrain.Transmission.CurrentGear
+
+    Output signals:
+        Vehicle.Powertrain.Transmission.CurrentGear  (corrections only)
+
+    Notes:
+        - Design decision: this module NEVER writes Vehicle.Speed.
+          Speed is a sensor value owned by the speed source. 
+          A logic module overwriting a
+          sensor would create two competing sources of truth and fight
+          the real source every cycle. Invalid acceleration is
+          therefore warned about, but not "corrected".
+        - Gear semantics (VSS custom mapping): gear < 0 = reverse,
+          0 = neutral, 126 = park, 127 = drive. All codes and
+          thresholds come from the powertrain config section.
+        - Warnings are printed once per condition (no log spam) and
+          re-armed when the vehicle returns to a valid state.
+    '''
+
+    # Input signal paths
     SPEED_SIGNAL = "Vehicle.Speed"
     GEAR_SIGNAL = "Vehicle.Powertrain.Transmission.CurrentGear"
-    
-    # Constructor 
-    def __init__(self, kuksa, config):
+
+    def __init__(self, kuksa: KuksaConnection, config, vehicle_state):
         self.kuksa = kuksa
+        self.vehicle_state = vehicle_state
 
-        # load config values from yaml file
-        self.GEAR_NEUTRAL = config["gear_neutral"]
-        self.GEAR_PARK = config["gear_park"]
-        self.GEAR_DRIVE = config["gear_drive"]
-
+        # gear codes and thresholds from the powertrain config section
+        self.gear_neutral = config["gear_neutral"]
+        self.gear_park = config["gear_park"]
+        self.gear_drive = config["gear_drive"]
         self.reverse_gear_threshold = config["reverse_gear_threshold"]
         self.moving_speed_threshold = config["moving_speed_threshold_kmh"]
 
-        # runtime states
-        self.last_valid_gear = self.GEAR_NEUTRAL
+        # runtime state
+        self.last_valid_gear = self.gear_park
         self.last_warning = None
-        self.last_valid_speed = 0
 
-    def is_forward(self, gear): # check for forward driving state
-        return gear > self.GEAR_NEUTRAL or gear == self.GEAR_DRIVE
+    def is_forward(self, gear):
+        return gear == self.gear_drive
 
-    def is_reverse(self, gear): # check for reverse driving state 
+    def is_reverse(self, gear):
         return gear < self.reverse_gear_threshold
-    
-    def print_warning_once(self, warning_key, message): # for printing warning message only once per detection
+
+    def is_driving_gear(self, gear):
+        return self.is_forward(gear) or self.is_reverse(gear)
+
+    def print_warning_once(self, warning_key, message):
+        '''Prints a warning only once until the condition changes.'''
         if self.last_warning != warning_key:
             print(message)
             self.last_warning = warning_key
 
-
     def run(self):
-        # reading current values 
-        speed = float(self.kuksa.get(self.SPEED_SIGNAL,0))
-        gear = int(self.kuksa.get(self.GEAR_SIGNAL, self.GEAR_NEUTRAL))
+        if not self.vehicle_state.get("is_ready", False):
+            return
 
-## ---- Logic for invalid speed increase while in ivalid gear -------- 
-        # Prevent Speed increase in invalid gear (N)
-        if not (self.is_forward(gear) or self.is_reverse(gear)):
-            # if speed increases while gear is invalid -> reset
-            self.kuksa.publish(self.SPEED_SIGNAL, self.last_valid_speed)
-            self.print_warning_once(
-                "invalid_acceleration",
-                "Safety: Acceleration not allowed in current gear, switch to Drive"
-            )
-        
-        # Store last valid speed only if gear is valid
-        if self.is_forward(gear) or self.is_reverse(gear):
-            self.last_valid_speed = speed
+        # read the current motion state from the broker
+        try:
+            speed = float(self.kuksa.get(self.SPEED_SIGNAL, 0))
+            gear = int(self.kuksa.get(self.GEAR_SIGNAL, self.gear_neutral))
+        except Exception as e:
+            print(f"[PowertrainSafety] Error: reading from broker "
+                  f"failed: {e}")
+            return
 
-## ---- Warnings for wanting to switch out of D while driving -----
-        # Stores last valid gear 
-        if self.is_forward(gear) or self.is_reverse(gear):
+        # remember the last driving gear for later corrections
+        if self.is_driving_gear(gear):
             self.last_valid_gear = gear
 
-        # Prevention of switching gears to N or P while driving 
-        if speed > 0 and gear == self.GEAR_PARK: # Prevent switching to parking while driving 
-            #self.kuksa.publish(self.GEAR_SIGNAL, self.last_valid_gear)
-            self.print_warning_once(
-                "park_while_driving",
-                "Safety warning: Park selected while driving not allowed"
-            )
-           
-        elif speed > 0 and gear == self.GEAR_NEUTRAL:  # Prevent switching to neutral while driving 
-            #self.kuksa.publish(self.GEAR_SIGNAL, self.last_valid_gear)
-            self.print_warning_once(
-                "neutral_while_driving",
-                "Safety warning: Neutral selected while driving not allowed"
-            )
+        moving = speed > self.moving_speed_threshold
 
-        elif speed > 0 and not (self.is_forward(gear) or self.is_reverse(gear)): # General warning 
+        # Case 1: Park selected while moving
+        if moving and gear == self.gear_park:
+            if self.is_driving_gear(self.last_valid_gear):
+                # driver shifted to Park while driving -> restore gear
+                self.kuksa.publish(self.GEAR_SIGNAL, self.last_valid_gear)
+                self.print_warning_once(
+                    "park_while_driving",
+                    "[PowertrainSafety] Warning: shift to Park while "
+                    "moving blocked - gear restored")
+            else:
+                # vehicle "moves" although it never left Park: the speed
+                # source ignores the gear. Cannot be corrected without
+                # writing Vehicle.Speed -> warn.
+                self.print_warning_once(
+                    "moving_in_park",
+                    "[PowertrainSafety] Warning: speed > 0 while in "
+                    "Park - acceleration in Park is not allowed")
+
+        # Case 2: Neutral selected while moving
+        elif moving and gear == self.gear_neutral:
+            if self.is_driving_gear(self.last_valid_gear):
+                self.kuksa.publish(self.GEAR_SIGNAL, self.last_valid_gear)
+                self.print_warning_once(
+                    "neutral_while_driving",
+                    "[PowertrainSafety] Warning: shift to Neutral while "
+                    "moving blocked - gear restored")
+            else:
+                self.print_warning_once(
+                    "moving_in_neutral",
+                    "[PowertrainSafety] Warning: speed > 0 while in "
+                    "Neutral - acceleration in Neutral is not allowed")
+
+        # Case 3: moving in any other non-driving gear
+        elif moving and not self.is_driving_gear(gear):
             self.print_warning_once(
                 "invalid_gear",
-                "Safety warning: Moving without valid gear"
-            )
-        else: # Reset state when the vehicle returns to a valid state
-            self.last_warning = None    
+                "[PowertrainSafety] Warning: moving without a valid gear")
+
+        # Valid state again -> re-arm the warnings
+        else:
+            self.last_warning = None

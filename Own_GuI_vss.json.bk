@@ -793,11 +793,6 @@
                         "uuid": "33ac6ec5e4d9550aac6ae0ce97dae259",
                         "name": "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling",
                         "id": "220652259baae1cdaa95258f"
-                      },
-                      "IsEnabled": {
-                        "datatype": "boolean",
-                        "type": "actuator",
-                        "description": "Left turn indicator switch state (driver intent)"
                       }
                     },
                     "description": "Indicator lights.",
@@ -823,11 +818,6 @@
                         "uuid": "9b0a1dab153f5dcda8df2116c3b6d487",
                         "name": "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling",
                         "id": "5dab721678128dcadfc31e10"
-                      },
-                      "IsEnabled": {
-                        "datatype": "boolean",
-                        "type": "actuator",
-                        "description": "Right turn indicator switch state (driver intent)"
                       }
                     },
                     "description": "Indicator lights.",
@@ -919,11 +909,6 @@
                     "uuid": "c53950205aa15dffa304390dcb761cc3",
                     "name": "Vehicle.Body.Lights.Hazard.IsSignaling",
                     "id": "ea4686ac0f1285b0572a6e9f"
-                  },
-                  "IsEnabled": {
-                    "datatype": "boolean",
-                    "type": "actuator",
-                    "description": "Hazard warning switch state (driver intent)"
                   }
                 },
                 "description": "Hazard lights.",
@@ -3152,11 +3137,6 @@
                     "uuid": "e5ffaf58cc10523fa0858deafb61a8ce",
                     "name": "Vehicle.Cabin.Infotainment.HMI.TirePressureUnit",
                     "id": "39d8711611a70f80448917a2"
-                  },
-                  "DistanceWarningChime": {
-                    "datatype": "uint8",
-                    "type": "actuator",
-                    "description": "Acoustic distance warning tone: 0 = silent, 1 = slow beep, 2 = rapid beep, 3 = solid beep"
                   }
                 },
                 "description": "HMI related signals",

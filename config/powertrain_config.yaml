@@ -1,7 +1,9 @@
 powertrain:
+#gear definitions
   gear_neutral: 0
   gear_park: 126
   gear_drive: 127
 
+# thresholds
   reverse_gear_threshold: 0
-  moving_speed_threshold_kmh: 0
+  moving_speed_threshold_kmh: 0 # any speed is moving

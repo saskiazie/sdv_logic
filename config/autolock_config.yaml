@@ -2,4 +2,5 @@
 autolock:
 
   threshold_kmh: 15
-  
+  gear_park: 126
+  gear_neutral: 0
