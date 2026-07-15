@@ -1,0 +1,86 @@
+@startuml architecture_overview
+' System architecture of the SDV project.
+' Answers: which part runs where, and how does data flow?
+' Rule of the project: ALL logic runs in the VM, Unreal only visualizes.
+
+skinparam defaultFontName sans-serif
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+node "Ubuntu VM" {
+
+  component "KUKSA Databroker\n(Docker, port 55555)" as BROKER
+
+  package "sdv_logic (Python)" {
+    component "Logic_main.py\none thread per module" as MAIN
+    component "KuksaConnection\nthread-safe wrapper (lock)" as CONN
+
+    package "Logic modules (0.1 s cycle)" as SLOW {
+      component "StartSequence" as SS
+      component "AutoLock" as AL
+      component "PowertrainSafetyLogic" as PS
+      component "PDCLogic" as PDC
+    }
+
+    package "Fast lane (0.02 s cycle)" as FAST {
+      component "LightsLogic" as LL
+      component "IndicatorLogic" as IL
+      component "UnrealSender\nTCP server, port 7010" as US
+    }
+
+    component "config_loader\nconfig/*config*.yaml" as CFG
+  }
+}
+
+node "Unreal Engine" {
+  component "BP_Transceiver2\nTCP client" as BP
+  component "<any vehicle blueprint>\nimplements BPI_VSSVehicle" as CAR
+  component "WBP_Dashboard\nspeed, hazard" as HUD
+}
+
+CFG --> MAIN : thresholds, cycle time
+MAIN --> SS
+MAIN --> AL
+MAIN --> PS
+MAIN --> PDC
+MAIN --> LL
+MAIN --> IL
+MAIN --> US
+
+SS ..> CONN
+AL ..> CONN
+PS ..> CONN
+PDC ..> CONN
+LL ..> CONN
+IL ..> CONN
+US ..> CONN
+
+CONN <--> BROKER : gRPC\nget_many / publish_many
+
+US --> BP : ASCII frame, 10 fields\n"speed;gear;hazard;...|"
+BP --> CAR : BPI_VSSVehicle messages\nVSS_SetHazard / TurnLeft /\nTurnRight / LowBeam
+BP --> HUD : speed, hazard text
+
+note right of MAIN
+  vehicle_state (shared dict):
+  is_locked / is_unlocked /
+  driver_access / is_ready /
+  hazard_enabled
+  Coordinates the modules
+  without direct coupling.
+end note
+
+note bottom of BP
+  Length == 10 guard:
+  incomplete frames from the
+  TCP stream are discarded.
+end note
+
+note right of CAR
+  No cast to a concrete class:
+  the transceiver addresses a
+  contract, the vehicle decides
+  how to render the light state.
+end note
+
+@enduml

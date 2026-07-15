@@ -46,7 +46,9 @@ finished vehicle states over TCP and contains no logic of its own.
                                                               v
                             +------------- Unreal Engine -------------+
                             |  BP_Transceiver2 (TCP client)           |
-                            |    -> BP_VehicleAdvSportsCar (lights)   |
+                            |    -> BPI_VSSVehicle (interface)        |
+                            |         -> any vehicle blueprint        |
+                            |            implementing the interface   |
                             |    -> WBP_Dashboard (speed, hazard)     |
                             +-----------------------------------------+
 ```
@@ -58,7 +60,8 @@ finished vehicle states over TCP and contains no logic of its own.
 | Logic modules | VM, one daemon thread each | read signals, decide, publish signals |
 | vehicle_state | VM, shared dict | coordination between the modules |
 | UnrealSender | VM, TCP server | streams the visualization state |
-| Unreal Engine | host or VM | renders finished states, no logic |
+| BP_Transceiver2 | Unreal | receives frames, sends interface messages |
+| Vehicle blueprint | Unreal | implements BPI_VSSVehicle, renders the light states |
 
 ---
 
@@ -360,6 +363,26 @@ discards *every* frame.
 
 The frame stream can be inspected without Unreal using `test_files/test_unreal_client.py`.
 
+### Blueprint interface
+
+`BP_Transceiver2` drives the vehicle through the Blueprint interface
+`BPI_VSSVehicle` - it holds no reference to a concrete vehicle class:
+
+| Interface event | Frame index | Meaning |
+|-----------------|-------------|---------|
+| `VSS_SetHazard` | 2 | hazard lamps on/off |
+| `VSS_SetLowBeam` | 5 | low beam on/off |
+| `VSS_SetTurnLeft` | 8 | left indicator lamp on/off |
+| `VSS_SetTurnRight` | 9 | right indicator lamp on/off |
+
+Speed (0) and hazard (2) additionally go to `WBP_Dashboard`, which is a widget
+and not addressed through the interface.
+
+To connect a different vehicle: add `BPI_VSSVehicle` under Class Settings ->
+Interfaces, implement the four events, and wire them to whatever the vehicle
+uses to show light (materials, light components, ...). No change in
+`BP_Transceiver2` is required.
+
 ---
 
 ## Design Decisions
@@ -401,6 +424,16 @@ self-healing: a lost publish is corrected within 20 ms.
 **`vehicle_state` without a lock.** All writers set simple boolean flags, which is
 atomic under the CPython GIL. A lock would add complexity without a measurable
 benefit at these cycle rates.
+
+**The transceiver knows no vehicle class.** `BP_Transceiver2` sends its light
+states through the Blueprint interface `BPI_VSSVehicle` instead of casting to a
+concrete vehicle blueprint. A new vehicle implements the four interface events
+(`VSS_SetHazard`, `VSS_SetTurnLeft`, `VSS_SetTurnRight`, `VSS_SetLowBeam`) and
+decides for itself how to render them - materials, light components, anything.
+The transceiver is not touched. This is the same rule as VM vs. Unreal, one
+level deeper: the sender defines *what* to show, the vehicle decides *how*.
+Interface messages to a vehicle that does not implement a function are ignored
+silently, so a partial implementation cannot break the system.
 
 **Frame fragments are discarded, not buffered.** TCP is a byte stream, so a read can
 end mid-frame. Instead of a reassembly buffer, `BP_Transceiver2` validates the field
