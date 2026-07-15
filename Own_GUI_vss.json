@@ -3152,6 +3152,11 @@
                     "uuid": "e5ffaf58cc10523fa0858deafb61a8ce",
                     "name": "Vehicle.Cabin.Infotainment.HMI.TirePressureUnit",
                     "id": "39d8711611a70f80448917a2"
+                  },
+                  "DistanceWarningChime": {
+                    "datatype": "uint8",
+                    "type": "actuator",
+                    "description": "Acoustic distance warning tone: 0 = silent, 1 = slow beep, 2 = rapid beep, 3 = solid beep"
                   }
                 },
                 "description": "HMI related signals",
