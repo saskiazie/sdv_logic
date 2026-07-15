@@ -32,6 +32,8 @@ class IndicatorLogic:
           all updates go out in ONE atomic publish_many() call: a lost
           or delayed publish heals within one cycle, and left/right
           can never drift apart. Designed for the 0.02 s fast lane.
+        - Hazard must work even if the vehicle is off (no ignition required), 
+          therefore its not dependant on the vehicle_state["is_ready"] flag.
     '''
 
     # Input: switch signals (driver intent, constant true/false) - New signals 

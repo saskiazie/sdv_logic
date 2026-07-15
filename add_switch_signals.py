@@ -1,5 +1,3 @@
-import json
-
 # as an example how to add signals 
 '''
 One-time utility: adds the three indicator SWITCH signals to the VSS
@@ -15,6 +13,7 @@ Notes:
     - Safe to re-run: existing signals are skipped.
     - Nothing is written if any parent path is missing.
 '''
+import json
 
 VSS_FILE = "Own_GUI_vss.json"
 
