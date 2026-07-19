@@ -84,8 +84,6 @@ sdv_logic/
 - lights_logic.py - access lighting, DRL, feedback blink
 - indicator_logic.py - turn indicators and hazard lights
 - unreal_sender.py - TCP bridge to the Unreal HMI
-- demo_drive.py - demo drive script (presentation only)
-- dummy_sender.py - sends test frames without KUKSA
 - Own_GUI_vss.json - VSS mapping used by the databroker
 - requirements.txt
 
