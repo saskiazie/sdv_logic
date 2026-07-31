@@ -22,10 +22,12 @@ class UnrealSender:
         7  Vehicle.ADAS.PDC.Rear.Distance
         8  Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling
         9  Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling
+        10 Vehicle.Chassis.Accelerator.PedalPosition
+        11 Vehicle.Chassis.SteeringWheel.Angle 
 
     Output signals:
         none in KUKSA - TCP ASCII frames to Unreal:
-        "speed;gear;hazard;backup;drl;lowbeam;interior;pdc;turnl;turnr|"
+        "speed;gear;hazard;backup;drl;lowbeam;interior;pdc;turnl;turnr;gaspedal;steering|"
         (bools as 0/1, "|" = message terminator)
 
     Notes:
@@ -34,11 +36,11 @@ class UnrealSender:
         - TCP_NODELAY disables Nagle's algorithm: the small frames are
           sent immediately instead of being batched by the OS, which
           would distort the blink timing in the visualization.
-        - The field count MUST match the Length==10 guard in
+        - The field count MUST match the Length==12 guard in
           BP_Transceiver2. Adding a field means: extend this frame,
           set the guard to the new count and add the GET in Unreal -
           all in one step, otherwise every frame is discarded.
-        - All ten signals are read in ONE get_many() call to keep the
+        - All twelve signals are read in ONE get_many() call to keep the
           lock contention on the shared connection low (fast lane).
     '''
 
@@ -53,6 +55,8 @@ class UnrealSender:
     PDC_SIGNAL = "Vehicle.ADAS.PDC.Rear.Distance"
     TURNL_SIGNAL = "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling"
     TURNR_SIGNAL = "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling"
+    GASPEDAL_SIGNAL = "Vehicle.Chassis.Accelerator.PedalPosition"
+    STEERING_SIGNAL = "Vehicle.Chassis.SteeringWheel.Angle"
 
     def __init__(self, kuksa: KuksaConnection, vehicle_state, host="0.0.0.0", port=7010):
         self.kuksa = kuksa
@@ -98,7 +102,7 @@ class UnrealSender:
         sigs = [self.SPEED_SIGNAL, self.GEAR_SIGNAL, self.HAZARD_SIGNAL,
                 self.BACKUP_SIGNAL, self.DRL_SIGNAL, self.LOWBEAM_SIGNAL,
                 self.INTERIOR_SIGNAL, self.PDC_SIGNAL,
-                self.TURNL_SIGNAL, self.TURNR_SIGNAL]
+                self.TURNL_SIGNAL, self.TURNR_SIGNAL, self.GASPEDAL_SIGNAL, self.STEERING_SIGNAL]
         try:
             vals = self.kuksa.get_many(sigs, default=None)
             speed = float(vals[self.SPEED_SIGNAL] or 0)
@@ -111,6 +115,8 @@ class UnrealSender:
             pdc = float(vals[self.PDC_SIGNAL] or 999.0)
             turnl = bool(vals[self.TURNL_SIGNAL] or False)
             turnr = bool(vals[self.TURNR_SIGNAL] or False)
+            gaspedal = float(vals[self.GASPEDAL_SIGNAL] or 0.0)
+            steering = float(vals[self.STEERING_SIGNAL] or 0.0)
         except Exception as e:
             print(f"[UnrealSender] Error: reading from broker failed: {e}")
             return
@@ -118,7 +124,7 @@ class UnrealSender:
         # 3. build the message (bools as 0/1 for easy parsing in Unreal)
         msg = (f"{speed:0.2f};{gear};{int(hazard)};{int(backup)};"
                f"{int(drl)};{int(lowbeam)};{int(interior)};{pdc:0.1f};"
-               f"{int(turnl)};{int(turnr)}|")
+               f"{int(turnl)};{int(turnr)};{gaspedal:0.2f};{steering:0.2f}|")
 
         # 4. send - reset cleanly on connection loss
         try:

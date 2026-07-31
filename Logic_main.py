@@ -14,6 +14,7 @@ from pdc_logic import PDCLogic
 from lights_logic import LightsLogic
 from indicator_logic import IndicatorLogic
 from unreal_sender import UnrealSender
+from unreal_receiver import UnrealReceiver
 
 from init_kuksa_signals import reset_vehicle_signals
 
@@ -80,7 +81,8 @@ def main():
     lights_logic = LightsLogic(kuksa, vehicle_state)
     indicator_logic = IndicatorLogic(kuksa, vehicle_state)
     unreal_sender = UnrealSender(kuksa, vehicle_state, port=7010)
-
+    unreal_receiver = UnrealReceiver(vehicle_state, vehicle_state, port=7011)
+    
     # 6. Group modules for automated threading
     logic_modules = [
         start_sequence,
@@ -90,6 +92,7 @@ def main():
         lights_logic,
         indicator_logic,
         unreal_sender,
+        unreal_receiver,
     ]
 
     print("[Main] Info: SDV logic started")
@@ -102,7 +105,7 @@ def main():
 
         # Fast lane: blinking lights and the Unreal stream need a
         # faster cycle for smooth operation
-        if isinstance(logic_module, (LightsLogic, IndicatorLogic, UnrealSender)):
+        if isinstance(logic_module, (LightsLogic, IndicatorLogic, UnrealSender, UnrealReceiver)):
             chosen_cycle_time = FAST_LANE_CYCLE_S
 
         threading.Thread(
