@@ -81,7 +81,7 @@ def main():
     lights_logic = LightsLogic(kuksa, vehicle_state)
     indicator_logic = IndicatorLogic(kuksa, vehicle_state)
     unreal_sender = UnrealSender(kuksa, vehicle_state, port=7010)
-    unreal_receiver = UnrealReceiver(vehicle_state, vehicle_state, port=7011)
+    unreal_receiver = UnrealReceiver(kuksa, vehicle_state, port=7011)
     
     # 6. Group modules for automated threading
     logic_modules = [
