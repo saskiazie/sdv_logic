@@ -26,6 +26,7 @@ node "Ubuntu VM" {
       component "LightsLogic" as LL
       component "IndicatorLogic" as IL
       component "UnrealSender\nTCP server, port 7010" as US
+      component "UnrealReceiver\nTCP server, port 7011" as UR
     }
 
     component "config_loader\nconfig/*config*.yaml" as CFG
@@ -33,7 +34,7 @@ node "Ubuntu VM" {
 }
 
 node "Unreal Engine" {
-  component "BP_Transceiver2\nTCP client" as BP
+  component "BP_Transceiver\nTCP client, both directions" as BP
   component "<any vehicle blueprint>\nimplements BPI_VSSVehicle" as CAR
   component "WBP_Dashboard\nspeed, hazard" as HUD
 }
@@ -46,6 +47,7 @@ MAIN --> PDC
 MAIN --> LL
 MAIN --> IL
 MAIN --> US
+MAIN --> UR
 
 SS ..> CONN
 AL ..> CONN
@@ -54,11 +56,13 @@ PDC ..> CONN
 LL ..> CONN
 IL ..> CONN
 US ..> CONN
+UR ..> CONN
 
 CONN <--> BROKER : gRPC\nget_many / publish_many
 
-US --> BP : ASCII frame, 10 fields\n"speed;gear;hazard;...|"
-BP --> CAR : BPI_VSSVehicle messages\nVSS_SetHazard / TurnLeft /\nTurnRight / LowBeam
+US --> BP : ASCII frame, 12 fields, 50 Hz\n"speed;gear;hazard;...;gaspedal;steering|"
+BP --> UR : measured speed\n"42.80|"
+BP --> CAR : BPI_VSSVehicle messages\nVSS_SetHazard / TurnLeft /\nTurnRight / LowBeam / Throttle
 BP --> HUD : speed, hazard text
 
 note right of MAIN
@@ -71,9 +75,17 @@ note right of MAIN
 end note
 
 note bottom of BP
-  Length == 10 guard:
+  Length == 12 guard:
   incomplete frames from the
   TCP stream are discarded.
+end note
+
+note right of UR
+  Unreal reports a MEASUREMENT,
+  not a decision: the road speed
+  is produced by the Chaos physics
+  and only exists there.
+  Sole writer of Vehicle.Speed.
 end note
 
 note right of CAR

@@ -22,7 +22,7 @@ SS -> VS : is_unlocked = true\nis_locked = false
 LL -> VS : read flags
 LL -> K : publish LightSwitch = OFF\nAmbientLight = true
 LL -> K : publish_many(hazard + left + right)\ndouble blink, 2x 0.3 s
-US -> K : get_many(10 signals)
+US -> K : get_many(12 signals)
 US -> U : frame "0.00;126;1;0;...|"
 note right of LL : interior light off\nafter 5 s (once)
 
