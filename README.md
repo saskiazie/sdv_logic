@@ -11,10 +11,40 @@ finished vehicle states over TCP and contains no logic of its own.
 
 ## System Requirements
 
-- Linux (Ubuntu 22.04 / VirtualBox VM recommended)
+- Linux (Ubuntu 20.04 in a VirtualBox VM)
 - Python 3.8+
 - Docker
 - Unreal Engine 5 with a TCP socket plugin (optional - the logic runs without it)
+
+### Verified environment
+
+The versions this project was developed and tested with. Newer ones are likely
+to work, but only these were actually used - the gRPC API of `kuksa-client` in
+particular has changed between releases.
+
+| Component | Where it runs | Version |
+|-----------|---------------|---------|
+| Oracle VirtualBox | Windows host | 7.1.2 |
+| Ubuntu | VM | 20.04 LTS |
+| Python | VM | 3.8.10 |
+| `kuksa-client` | VM (pip) | 0.5.1 |
+| `pyyaml` | VM (pip) | see `requirements.txt` |
+| Docker Engine | VM | 26.1.3 |
+| KUKSA Databroker image | VM (container) | tag `main`, built 01/04/2026 |
+| KUKSA Databroker CLI | VM (container) | v0.6.1-dev.0 |
+| VSS catalog | `Own_GUI_vss.json` | 4.1 + project extensions |
+| Unreal Engine | Windows host | *fill in from `.uproject`, field `EngineAssociation`* |
+| TCP socket plugin | Unreal project | *fill in from `Plugins/<Name>/<Name>.uplugin`* |
+
+The databroker image tag `main` moves. If you need the exact state:
+
+```bash
+docker image inspect ghcr.io/eclipse-kuksa/kuksa-databroker:main --format '{{.Created}}  {{index .RepoDigests 0}}'
+```
+
+**The logic runs in the VM, Unreal runs on the Windows host.** The two are
+connected through VirtualBox port forwarding on ports 7010 and 7011 - see
+Unreal Interface below.
 
 ---
 
@@ -29,23 +59,24 @@ finished vehicle states over TCP and contains no logic of its own.
 |            v                                                      |
 |   KuksaConnection   (thread-safe wrapper, one shared instance)    |
 |            ^                                                      |
-|   +--------+--------+---------+---------+---------+---------+     |
-|   |        |        |         |         |         |         |     |
-| Start-   Auto-   Powertrain  PDC-    Lights-  Indicator- Unreal-  |
-| Sequence  Lock    Safety     Logic    Logic     Logic    Sender   |
-|   |        |        |         |         |         |         |     |
-|   +--------+--------+----+----+---------+---------+         |     |
-|                          |                                  |     |
-|              vehicle_state (shared dict)                    |     |
-|      is_locked / is_unlocked / driver_access /              |     |
-|      is_ready / hazard_enabled                              |     |
-+-------------------------------------------------------------|-----+
-                                                              |
-                                       ASCII frame (10 fields, 50 Hz)
-                                            TCP port 7010
-                                                              v
+|   +--------+-----+--------+--------+--------+--------+------+     |
+|   |        |     |        |        |        |        |      |     |
+| Start-   Auto- Power-   PDC-    Lights- Indicator Unreal- Unreal- |
+| Sequence  Lock  train   Logic    Logic    Logic   Sender  Receiver|
+|   |        |     |        |        |        |        |      |     |
+|   +--------+-----+---+----+--------+--------+        |      |     |
+|                      |                               |      |     |
+|          vehicle_state (shared dict)                 |      |     |
+|      is_locked / is_unlocked / driver_access /       |      |     |
+|      is_ready / hazard_enabled                       |      |     |
++------------------------------------------------------|------|-----+
+                                                        |      ^
+       vehicle state, 12 fields, 50 Hz, TCP port 7010   |      |
+                                                        |      |
+                                                        |      |  measured speed, TCP port 7011
+                                                        v      |
                             +------------- Unreal Engine -------------+
-                            |  BP_Transceiver2 (TCP client)           |
+                            |  BP_Transceiver (TCP client, both ways) |
                             |    -> BPI_VSSVehicle (interface)        |
                             |         -> any vehicle blueprint        |
                             |            implementing the interface   |
@@ -59,8 +90,9 @@ finished vehicle states over TCP and contains no logic of its own.
 | KuksaConnection | VM, shared by all threads | thread-safe gRPC access |
 | Logic modules | VM, one daemon thread each | read signals, decide, publish signals |
 | vehicle_state | VM, shared dict | coordination between the modules |
-| UnrealSender | VM, TCP server | streams the visualization state |
-| BP_Transceiver2 | Unreal | receives frames, sends interface messages |
+| UnrealSender | VM, TCP server (7010) | streams the visualization state |
+| UnrealReceiver | VM, TCP server (7011) | publishes the speed measured in Unreal |
+| BP_Transceiver | Unreal | receives frames, sends interface messages |
 | Vehicle blueprint | Unreal | implements BPI_VSSVehicle, renders the light states |
 
 ---
@@ -83,7 +115,8 @@ sdv_logic/
 - pdc_logic.py - park distance control + backup light
 - lights_logic.py - access lighting, DRL, feedback blink
 - indicator_logic.py - turn indicators and hazard lights
-- unreal_sender.py - TCP bridge to the Unreal HMI
+- unreal_sender.py - TCP bridge to the Unreal HMI (outbound)
+- unreal_receiver.py - TCP return channel from Unreal (inbound)
 - Own_GUI_vss.json - VSS mapping used by the databroker
 - requirements.txt
 
@@ -99,6 +132,7 @@ sdv_logic/docs/
 - vehicle_state_machine.puml - startup state machine
 - sequence_startup.puml - startup sequence across modules
 - activity_indicator_logic.puml - one indicator cycle
+- img/ - generated class and package diagrams
 
 sdv_logic/test_files/
 - test_config.py
@@ -183,6 +217,7 @@ If successful, the terminal prints:
 ```
 [KuksaConnection] Info: successfully connected
 [UnrealSender] Info: waiting for Unreal connection on port 7010
+[UnrealReceiver] Info: waiting for Unreal connection on port 7011
 [Main] Info: SDV logic started
 ```
 
@@ -245,7 +280,7 @@ A full signal reference per module is in `docs/used_vss_signals.md`.
 - `Logic_main.py` starts **one daemon thread per logic module**
 - Each module cyclically reads its input signals, decides, and publishes its output signals
 - Two cycle rates are used:
-  - **0.02 s (fast lane)**: LightsLogic, IndicatorLogic, UnrealSender - smooth blinking and frame rate
+  - **0.02 s (fast lane)**: LightsLogic, IndicatorLogic, UnrealSender, UnrealReceiver - smooth blinking and frame rate
   - **0.1 s (standard)**: StartSequence, AutoLock, PowertrainSafetyLogic, PDCLogic
 - All modules share **one** `KuksaConnection`. The underlying VSSClient is not
   thread-safe, so every gRPC call is serialized with a lock
@@ -256,6 +291,9 @@ A full signal reference per module is in `docs/used_vss_signals.md`.
   and PowertrainSafetyLogic return immediately
 - `UnrealSender` acts as a TCP server on port 7010 and streams the visualization
   state to Unreal at 50 Hz
+- `UnrealReceiver` acts as a TCP server on port 7011 and publishes the road speed
+  measured by Unreal's physics engine - the only value in the system that
+  originates outside the VM
 - All signals follow `Own_GUI_vss.json`
 
 **Core design rule:** all decisions happen in the VM. Unreal receives finished states
@@ -333,12 +371,41 @@ pdc:
 
 ## Unreal Interface
 
+### Where the Unreal project comes from
+
+The visualization is **not** part of this repository - it lives on the Windows
+host, while the logic runs in the VM. It was built from stock parts, so it can
+be recreated without any purchased asset:
+
+| Part | Origin |
+|------|--------|
+| Base project | Unreal Engine **Vehicle template** (Games -> Vehicle, Blueprint variant), shipped with every engine installation |
+| Vehicle, level, camera | contained in that template - `Lvl_VehicleBasic`, the advanced vehicle pawn and its lighting components |
+| TCP connection | a free Blueprint TCP socket plugin, providing the `Connect`, `Read String` nodes and the `OnMessageReceived` event |
+| `BP_Transceiver`, `BPI_VSSVehicle`, `WBP_Dashboard` | written for this project |
+
+The template was chosen deliberately over building a vehicle from scratch: the
+logic produces **states**, not physics, so what was needed was a car whose
+lights and motion can be driven from outside - not a driving simulation. The
+template provides exactly that, including a drivable pawn whose Chaos physics
+produce the road speed that `UnrealReceiver` reads back.
+
+Two consequences worth knowing before rebuilding it:
+
+- The **Blueprint** variant of the template is enough. The C++ variant needs a
+  working Visual Studio toolchain and buys nothing here.
+- Unreal on the host and the logic in the VM only meet through **VirtualBox
+  port forwarding**. Both ports (7010 outbound, 7011 inbound) have to be
+  forwarded to the VM, otherwise the plugin connects to nothing.
+
+### Frame format (port 7010)
+
 `UnrealSender` acts as a TCP server on port 7010. Unreal connects as a client and
 receives ASCII frames at 50 Hz:
 
 ```
-speed;gear;hazard;backup;drl;lowbeam;interior;pdc;turnl;turnr|
-30.00;127;0;0;1;0;0;999.0;1;0|
+speed;gear;hazard;backup;drl;lowbeam;interior;pdc;turnl;turnr;gaspedal;steering|
+30.00;127;0;0;1;0;0;999.0;1;0;0.35;-12.40|
 ```
 
 | Index | Signal | Type |
@@ -353,17 +420,48 @@ speed;gear;hazard;backup;drl;lowbeam;interior;pdc;turnl;turnr|
 | 7 | Vehicle.ADAS.PDC.Rear.Distance | float (1 decimal) |
 | 8 | Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling | 0/1 |
 | 9 | Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling | 0/1 |
+| 10 | Vehicle.Chassis.Accelerator.PedalPosition | float (2 decimals) |
+| 11 | Vehicle.Chassis.SteeringWheel.Angle | float (2 decimals) |
+
+Fields 10 and 11 travel in a circle: Unreal reads the pedal and the wheel, the
+values reach the broker, and the same values come back in the frame. The vehicle
+is therefore driven by the signal, not by its own input - the databroker stays
+the single source of truth even for values that originate in Unreal.
 
 **Adding a field is a three-part change:** extend the frame in `unreal_sender.py`,
-raise the `Length == 10` guard in `BP_Transceiver2` to the new count, and add the
+raise the `Length == 12` guard in `BP_Transceiver` to the new count, and add the
 corresponding GET node. If the guard and the frame disagree, Unreal silently
 discards *every* frame.
 
 The frame stream can be inspected without Unreal using `test_files/test_unreal_client.py`.
 
+### Return channel (port 7011)
+
+`UnrealReceiver` is a second TCP server and receives one field from Unreal:
+
+```
+speed|
+42.80|
+```
+
+| Index | Value | Type |
+|-------|-------|------|
+| 0 | measured road speed in km/h | float |
+
+It publishes to `Vehicle.Speed` and is the sole writer of that signal. The
+vehicle is moved by Unreal's Chaos physics, so the road actually reached only
+exists there; without the return channel the VM would have to guess it from the
+pedal position. The architecture rule is unaffected: Unreal sends a
+**measurement**, not a decision.
+
+Own port on purpose - sharing 7010 would mean parsing two directions on one
+socket. Values are published only when they changed by more than 0.1 km/h, and
+if several frames arrive at once only the newest is used; a backlog would lag
+behind reality.
+
 ### Blueprint interface
 
-`BP_Transceiver2` drives the vehicle through the Blueprint interface
+`BP_Transceiver` drives the vehicle through the Blueprint interface
 `BPI_VSSVehicle` - it holds no reference to a concrete vehicle class:
 
 | Interface event | Frame index | Meaning |
@@ -372,14 +470,21 @@ The frame stream can be inspected without Unreal using `test_files/test_unreal_c
 | `VSS_SetLowBeam` | 5 | low beam on/off |
 | `VSS_SetTurnLeft` | 8 | left indicator lamp on/off |
 | `VSS_SetTurnRight` | 9 | right indicator lamp on/off |
+| `VSS_SetThrottle` | 10 | accelerator pedal position (float) |
 
 Speed (0) and hazard (2) additionally go to `WBP_Dashboard`, which is a widget
 and not addressed through the interface.
 
+`VSS_SetThrottle` deliberately carries the value to the vehicle instead of the
+transceiver calling `Set Throttle Input` itself. The transceiver states *what*
+the pedal position is; how the vehicle turns that into motion is its own
+business. The input must be a **float** - a boolean input silently truncates
+the pedal to on/off.
+
 To connect a different vehicle: add `BPI_VSSVehicle` under Class Settings ->
-Interfaces, implement the four events, and wire them to whatever the vehicle
-uses to show light (materials, light components, ...). No change in
-`BP_Transceiver2` is required.
+Interfaces, implement the events, and wire them to whatever the vehicle uses to
+show light or to drive (materials, light components, movement component). No
+change in `BP_Transceiver` is required.
 
 ---
 
@@ -409,6 +514,12 @@ never writes `Vehicle.Speed`. A logic module overwriting a sensor would create t
 competing sources of truth and fight the actual source every cycle. Invalid
 acceleration is therefore reported, not "corrected".
 
+`UnrealReceiver` is not an exception to this rule but its confirmation. It writes
+`Vehicle.Speed` because it is not a logic module: it reports a measurement taken
+by the physics engine, the way a wheel speed sensor would. The distinction is not
+which module writes, but whether the value is *measured* or *decided* - measured
+values enter the broker, decided ones leave it.
+
 **Thread safety.** The `VSSClient` is not thread-safe, but seven threads share one
 connection. `KuksaConnection` serializes every gRPC call with a lock. Without it,
 concurrent calls silently blocked each other for hundreds of milliseconds, which was
@@ -423,7 +534,7 @@ self-healing: a lost publish is corrected within 20 ms.
 atomic under the CPython GIL. A lock would add complexity without a measurable
 benefit at these cycle rates.
 
-**The transceiver knows no vehicle class.** `BP_Transceiver2` sends its light
+**The transceiver knows no vehicle class.** `BP_Transceiver` sends its light
 states through the Blueprint interface `BPI_VSSVehicle` instead of casting to a
 concrete vehicle blueprint. A new vehicle implements the four interface events
 (`VSS_SetHazard`, `VSS_SetTurnLeft`, `VSS_SetTurnRight`, `VSS_SetLowBeam`) and
@@ -434,7 +545,7 @@ Interface messages to a vehicle that does not implement a function are ignored
 silently, so a partial implementation cannot break the system.
 
 **Frame fragments are discarded, not buffered.** TCP is a byte stream, so a read can
-end mid-frame. Instead of a reassembly buffer, `BP_Transceiver2` validates the field
+end mid-frame. Instead of a reassembly buffer, `BP_Transceiver` validates the field
 count and drops incomplete frames. At 50 Hz the next complete frame arrives 20 ms
 later - the effort of a buffer is not justified for pure visualization.
 
@@ -454,6 +565,11 @@ later - the effort of a buffer is not justified for pure visualization.
 - The brake light (`Vehicle.Body.Lights.Brake.IsActive`, mapped) is not implemented:
   no brake pedal signal is fed by any source in this setup.
 - `Vehicle.ADAS.PD.Front.*` is mapped but not used by any module.
+- All signals are written as current values. In this setup that is correct -
+  no control unit sits behind the broker - but it means the logic states the
+  result of its own decision as fact instead of requesting it. On the wired
+  demonstrator the signals owned by a control unit would have to be written as
+  target values instead; see the `hardware-writemode` branch.
 
 ---
 
@@ -476,7 +592,7 @@ The class and package diagrams are generated directly from the code:
 pip install pylint
 ```
 ```bash
-pyreverse -o svg -p SDV_Logic --colorized Logic_main.py kuksa_connection.py config_loader.py start_sequence.py auto_lock.py powertrain_safety_logic.py pdc_logic.py lights_logic.py indicator_logic.py unreal_sender.py
+pyreverse -o svg -p SDV_Logic --colorized Logic_main.py kuksa_connection.py config_loader.py start_sequence.py auto_lock.py powertrain_safety_logic.py pdc_logic.py lights_logic.py indicator_logic.py unreal_sender.py unreal_receiver.py
 ```
 
 ---
@@ -503,6 +619,7 @@ docker network rm kuksa
 ## Notes
 
 - The logic runs headless - Unreal is optional and only visualizes
-- `Vehicle.Speed` is fed externally (CLI or demo script); no module writes it
+- `Vehicle.Speed` is written only by `UnrealReceiver`, which reports the speed
+  measured in Unreal. Without Unreal it is fed externally (CLI or demo script)
 - Intended for simulation and development use
 - Not intended for production vehicle systems

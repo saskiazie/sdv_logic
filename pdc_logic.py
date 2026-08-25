@@ -25,7 +25,7 @@ class PDCLogic:
         - The intermittent buzzer is a non-blocking pulse generator
           driven by elapsed time - no sleep() calls in the thread.
         - The buzzer signal is optional: writes go through
-          safe_kuksa_set() and are silently skipped if unmapped.
+          safe_kuksa_publish() and are silently skipped if unmapped.
         - Deactivation publishes exactly once (guarded by pdc_active)
           to avoid signal and log spam.
     '''
@@ -53,10 +53,10 @@ class PDCLogic:
     def is_reverse(self, gear):
         return gear < self.reverse_gear_threshold
 
-    def safe_kuksa_set(self, signal, value):
-        '''Set a target value; silently skip if the signal is unmapped.'''
+    def safe_kuksa_publish(self, signal, value):
+        '''publish a current value; silently skip if the signal is unmapped.'''
         try:
-            self.kuksa.set(signal, value)
+            self.kuksa.publish(signal, value)
         except Exception:
             pass
 
@@ -69,7 +69,7 @@ class PDCLogic:
 
             # pulse the tone state based on the toggle
             target_value = active_level if self.buzzer_toggle else 0
-            self.safe_kuksa_set(self.BUZZER_SIGNAL, target_value)
+            self.safe_kuksa_publish(self.BUZZER_SIGNAL, target_value)
 
     def run(self):
         if not self.vehicle_state.get("is_ready", False):
@@ -101,7 +101,7 @@ class PDCLogic:
             if self.pdc_active:
                 self.kuksa.publish(self.BACKUP_LIGHT_SIGNAL, False)
                 self.kuksa.publish(self.PDC_REAR_ACTIVE_SIGNAL, False)
-                self.safe_kuksa_set(self.BUZZER_SIGNAL, 0)  # mute buzzer
+                self.safe_kuksa_publish(self.BUZZER_SIGNAL, 0)  # mute buzzer
                 self.pdc_active = False
                 self.buzzer_toggle = False
                 print("[PDCLogic] Info: rear parking sensor and backup "
@@ -111,7 +111,7 @@ class PDCLogic:
         # Step 2: distance evaluation and mapping
         if distance_cm > 150.0:
             # out of warning range -> silence
-            self.safe_kuksa_set(self.BUZZER_SIGNAL, 0)
+            self.safe_kuksa_publish(self.BUZZER_SIGNAL, 0)
             self.buzzer_toggle = False
             return
         elif distance_cm > 100.0:
@@ -122,7 +122,7 @@ class PDCLogic:
             warning_level = 2
         else:
             # closer than 50 cm -> continuous solid beep
-            self.safe_kuksa_set(self.BUZZER_SIGNAL, 3)
+            self.safe_kuksa_publish(self.BUZZER_SIGNAL, 3)
             return
 
         # Step 3: non-blocking pulsed output

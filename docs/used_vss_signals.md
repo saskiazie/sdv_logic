@@ -7,7 +7,11 @@ signal. Derived from the module sources and `Own_GUI_vss.json` (VSS 4.1 base)
 **Access types**
 - **read** - `kuksa.get()` / `kuksa.get_many()` (current value)
 - **write** - `kuksa.publish()` / `kuksa.publish_many()` (current value)
-- **set** - `kuksa.set()` (target value, actuator request)
+
+No module writes target values. `KuksaConnection.set()` exists but is unused:
+in this setup no control unit sits behind the broker, so the logic is itself
+the provider of every signal it writes. See "System boundary" at the end of
+this file.
 
 ---
 
@@ -59,10 +63,10 @@ Guard: inactive until `vehicle_state["is_ready"]`.
 | `Vehicle.ADAS.PDC.Rear.Distance` | read | obstacle distance in cm |
 | `Vehicle.ADAS.PDC.Rear.IsActive` | write | sensor system state |
 | `Vehicle.Body.Lights.Backup.IsOn` | write | reverse light |
-| `Vehicle.Cabin.Infotainment.HMI.DistanceWarningChime` | set | 0=silent, 1=slow, 2=rapid, 3=solid |
+| `Vehicle.Cabin.Infotainment.HMI.DistanceWarningChime` | write | 0=silent, 1=slow, 2=rapid, 3=solid |
 
 Guard: inactive until `vehicle_state["is_ready"]`. Chime writes go through
-`safe_kuksa_set()`, so an unmapped chime signal cannot break the module.
+`safe_kuksa_publish()`, so an unmapped chime signal cannot break the module.
 
 ---
 
@@ -110,8 +114,8 @@ No `is_ready` guard: indicators work with the vehicle locked and off.
 
 ### UnrealSender (`unreal_sender.py`, 0.02 s)
 
-Read-only. All ten signals are fetched in one `get_many()` call; the order is
-the frame field order.
+Read-only. All twelve signals are fetched in one `get_many()` call; the order
+is the frame field order.
 
 | Index | Signal |
 |-------|--------|
@@ -125,6 +129,34 @@ the frame field order.
 | 7 | `Vehicle.ADAS.PDC.Rear.Distance` |
 | 8 | `Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling` |
 | 9 | `Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling` |
+| 10 | `Vehicle.Chassis.Accelerator.PedalPosition` |
+| 11 | `Vehicle.Chassis.SteeringWheel.Angle` |
+
+Fields 10 and 11 are driver inputs travelling in a circle: Unreal reads the
+pedal and the wheel, the values reach the broker, and the same values are sent
+back so the visualization drives the vehicle from the signal rather than from
+its own input. This keeps the databroker the single source of truth even for
+values that originate in Unreal.
+
+---
+
+### UnrealReceiver (`unreal_receiver.py`, 0.02 s)
+
+Write-only. Receives measured values from Unreal over TCP (port 7011) and
+publishes them.
+
+| Signal | Access | Purpose |
+|--------|--------|---------|
+| `Vehicle.Speed` | write | measured road speed from the Chaos physics engine |
+
+The vehicle is moved by Unreal's physics, so the actual road speed only exists
+there. Without this channel two truths would compete: the speed derived from
+the pedal in the VM and the speed the vehicle really reaches. The module makes
+the simulated vehicle a signal source like any other sensor - it reports a
+measurement, it does not decide anything.
+
+Values are published only when they changed by more than `SPEED_EPSILON`
+(0.1 km/h), so a constant speed does not put 50 writes per second on the broker.
 
 ---
 
@@ -165,7 +197,7 @@ source of truth; the two exceptions are documented below.
 
 | Signal | Written by | Read by |
 |--------|-----------|---------|
-| `Vehicle.Speed` | *external source only* | AutoLock, PowertrainSafety, UnrealSender |
+| `Vehicle.Speed` | UnrealReceiver (measurement) | AutoLock, PowertrainSafety, UnrealSender |
 | `Vehicle.Powertrain.Transmission.CurrentGear` | PowertrainSafety (corrections) | AutoLock, PowertrainSafety, PDCLogic, UnrealSender |
 | `Vehicle.Powertrain.CombustionEngine.IsRunning` | StartSequence | StartSequence, PDCLogic |
 | `Vehicle.Body.Access.KeyFob.IsUnlocked` | *external / init* | StartSequence |
@@ -185,7 +217,9 @@ source of truth; the two exceptions are documented below.
 | `Vehicle.ADAS.PDC.Rear.IsActive` | PDCLogic | - |
 | `Vehicle.ADAS.PDC.Rear.Distance` | *external (sensor)* | PDCLogic, UnrealSender |
 | `Vehicle.Body.Lights.Backup.IsOn` | PDCLogic | UnrealSender |
-| `...HMI.DistanceWarningChime` | PDCLogic (set), LightsLogic (publish) | - |
+| `...HMI.DistanceWarningChime` | PDCLogic, LightsLogic | - |
+| `Vehicle.Chassis.Accelerator.PedalPosition` | *external (Unreal input)* | UnrealSender |
+| `Vehicle.Chassis.SteeringWheel.Angle` | *external (Unreal input)* | UnrealSender |
 
 **Two writers on the `IsSignaling` signals - resolved by priority.**
 `IndicatorLogic` owns them while a switch is engaged. `LightsLogic` only drives
@@ -226,20 +260,40 @@ logic that was never written.
 
 | Signal | Status |
 |--------|--------|
-| `Vehicle.Chassis.Accelerator.PedalPosition` | accelerator pedal 0-100 %, fed by no source |
 | `Vehicle.Chassis.Brake.PedalPosition` | brake pedal 0-100 %, fed by no source |
 | `Vehicle.Body.Lights.Brake.IsActive` | brake lamp, string enum INACTIVE / ACTIVE / ADAPTIVE |
 
-These three form one chain. In a real vehicle the cause (pedal pressed) drives
-the effect (brake lamp on). In this setup no source feeds the pedal positions,
-so the cause is missing and the brake light cannot be driven from it. Deriving
-braking from the change of `Vehicle.Speed` would only estimate it indirectly
-and was therefore not implemented. A feedback channel from Unreal (driver
-inputs sent back to the VM) would close the gap without breaking the
-architecture rule, since pedal positions are sensor data, not logic.
+These two form one chain. In a real vehicle the cause (pedal pressed) drives
+the effect (brake lamp on). No source feeds the brake pedal position, so the
+cause is missing and the brake light cannot be driven from it. Deriving braking
+from the change of `Vehicle.Speed` would only estimate it indirectly and was
+therefore not implemented.
+
+The accelerator pedal shows what the missing piece would look like: it is fed
+from Unreal and travels through the broker like any other input. A brake pedal
+field in the same frame would close this chain the same way, without breaking
+the architecture rule - pedal positions are measurements, not decisions.
 
 ### Other
 
 | Signal | Status |
 |--------|--------|
 | `Vehicle.ADAS.PD.Front.IsActive` / `.Distance` | front person detection, prepared in the mapping but not implemented |
+
+---
+
+## 5. System boundary
+
+Every signal above is written as a **current value**. That is correct for this
+setup and only for this setup: the broker is fed by the CLI, by the demo script
+and by Unreal, and no control unit sits behind it. Where a real vehicle would
+have a provider that executes a request and reports back what actually
+happened, the logic here has to do both jobs at once - it decides, and it
+states the result as fact.
+
+On the wired demonstrator the signals owned by a control unit would have to be
+written as **target values** instead (`kuksa.set()` / `actuate` in the CLI),
+and the control unit would report the current value back through the
+`dbc2vss` mapping. Which signals are affected, and which two cases cannot be
+converted by changing the method alone, is documented in the `hardware-writemode`
+branch.

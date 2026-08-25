@@ -37,7 +37,7 @@ class UnrealSender:
           sent immediately instead of being batched by the OS, which
           would distort the blink timing in the visualization.
         - The field count MUST match the Length==12 guard in
-          BP_Transceiver2. Adding a field means: extend this frame,
+          BP_Transceiver. Adding a field means: extend this frame,
           set the guard to the new count and add the GET in Unreal -
           all in one step, otherwise every frame is discarded.
         - All twelve signals are read in ONE get_many() call to keep the

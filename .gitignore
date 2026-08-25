@@ -12,6 +12,7 @@ test_files/test_config.py
 test_files/test_lights_logic.py
 demo_drive.py
 dummy_sender.py
+blink_analyse.py
 
 # Backups
 *.bk
