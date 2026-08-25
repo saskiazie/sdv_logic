@@ -33,8 +33,8 @@ particular has changed between releases.
 | KUKSA Databroker image | VM (container) | tag `main`, built 01/04/2026 |
 | KUKSA Databroker CLI | VM (container) | v0.6.1-dev.0 |
 | VSS catalog | `Own_GUI_vss.json` | 4.1 + project extensions |
-| Unreal Engine | Windows host | *fill in from `.uproject`, field `EngineAssociation`* |
-| TCP socket plugin | Unreal project | *fill in from `Plugins/<Name>/<Name>.uplugin`* |
+| Unreal Engine | Windows host | 5.7.4 |
+| TCP socket plugin | Unreal project | 1.8.0 |
 
 The databroker image tag `main` moves. If you need the exact state:
 
@@ -486,93 +486,6 @@ Interfaces, implement the events, and wire them to whatever the vehicle uses to
 show light or to drive (materials, light components, movement component). No
 change in `BP_Transceiver` is required.
 
----
-
-## Design Decisions
-
-**Driver intent vs. light state.** Indicators use two signal layers: `*.IsEnabled` is
-the switch (driver intent, stays constant), `*.IsSignaling` is the lamp (toggled by
-`IndicatorLogic`). This mirrors real vehicle signal models and keeps Unreal free of
-any timing logic.
-
-**Blink frequency 1.5 Hz.** `BLINK_PERIOD = 0.333 s` per phase, full period 0.667 s.
-This equals 90 flashes/min, the center of the ECE-R48 legal range of 60-120
-flashes per minute.
-
-**Hazard release clears the indicators (step 1a).** Switching the hazard warning off
-also releases any engaged individual indicator. A real vehicle uses a mechanically
-latched stalk and would keep the indicator running; the predictable
-"hazard off = everything off" behavior was chosen deliberately.
-
-**Left/right interlock on switch level (step 1b).** If both indicator switches are on
-without hazard, the freshly pressed one wins and the opposite switch is actively
-published as `false`. The conflict is resolved at the intent layer, so every reader
-of the switches sees a consistent state - not just the lights.
-
-**Logic never writes sensor values.** `PowertrainSafetyLogic` corrects the gear but
-never writes `Vehicle.Speed`. A logic module overwriting a sensor would create two
-competing sources of truth and fight the actual source every cycle. Invalid
-acceleration is therefore reported, not "corrected".
-
-`UnrealReceiver` is not an exception to this rule but its confirmation. It writes
-`Vehicle.Speed` because it is not a logic module: it reports a measurement taken
-by the physics engine, the way a wheel speed sensor would. The distinction is not
-which module writes, but whether the value is *measured* or *decided* - measured
-values enter the broker, decided ones leave it.
-
-**Thread safety.** The `VSSClient` is not thread-safe, but seven threads share one
-connection. `KuksaConnection` serializes every gRPC call with a lock. Without it,
-concurrent calls silently blocked each other for hundreds of milliseconds, which was
-measurable as skipped indicator toggles.
-
-**Atomic multi-signal writes.** `publish_many()` sends several values in one call, so
-signals that must stay in sync (left/right indicator) can never drift apart. Active
-channels republish their target state every cycle, which makes the system
-self-healing: a lost publish is corrected within 20 ms.
-
-**`vehicle_state` without a lock.** All writers set simple boolean flags, which is
-atomic under the CPython GIL. A lock would add complexity without a measurable
-benefit at these cycle rates.
-
-**The transceiver knows no vehicle class.** `BP_Transceiver` sends its light
-states through the Blueprint interface `BPI_VSSVehicle` instead of casting to a
-concrete vehicle blueprint. A new vehicle implements the four interface events
-(`VSS_SetHazard`, `VSS_SetTurnLeft`, `VSS_SetTurnRight`, `VSS_SetLowBeam`) and
-decides for itself how to render them - materials, light components, anything.
-The transceiver is not touched. This is the same rule as VM vs. Unreal, one
-level deeper: the sender defines *what* to show, the vehicle decides *how*.
-Interface messages to a vehicle that does not implement a function are ignored
-silently, so a partial implementation cannot break the system.
-
-**Frame fragments are discarded, not buffered.** TCP is a byte stream, so a read can
-end mid-frame. Instead of a reassembly buffer, `BP_Transceiver` validates the field
-count and drops incomplete frames. At 50 Hz the next complete frame arrives 20 ms
-later - the effort of a buffer is not justified for pure visualization.
-
----
-
-## Known Limitations
-
-- `IndicatorLogic` has no `is_ready` guard: indicators and hazard lights also work
-  while the vehicle is locked and switched off. Intended for the hazard warning
-  (as in a real vehicle), accepted for the individual indicators.
-- While the unlock/lock feedback blink is running and an individual indicator is
-  engaged at the same time, both `LightsLogic` and `IndicatorLogic` write the same
-  `IsSignaling` signal. `IndicatorLogic` republishes every cycle and wins; the
-  feedback flash may be suppressed in that rare case.
-- `PowertrainSafetyLogic` only validates gears while the vehicle is moving.
-  Undefined gear codes are tolerated at standstill.
-- The brake light (`Vehicle.Body.Lights.Brake.IsActive`, mapped) is not implemented:
-  no brake pedal signal is fed by any source in this setup.
-- `Vehicle.ADAS.PD.Front.*` is mapped but not used by any module.
-- All signals are written as current values. In this setup that is correct -
-  no control unit sits behind the broker - but it means the logic states the
-  result of its own decision as fact instead of requesting it. On the wired
-  demonstrator the signals owned by a control unit would have to be written as
-  target values instead; see the `hardware-writemode` branch.
-
----
-
 ## Documentation
 
 | Diagram | Question it answers |
@@ -614,12 +527,3 @@ docker stop Server && docker rm Server
 docker network rm kuksa
 ```
 
----
-
-## Notes
-
-- The logic runs headless - Unreal is optional and only visualizes
-- `Vehicle.Speed` is written only by `UnrealReceiver`, which reports the speed
-  measured in Unreal. Without Unreal it is fed externally (CLI or demo script)
-- Intended for simulation and development use
-- Not intended for production vehicle systems
