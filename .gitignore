@@ -19,8 +19,8 @@ blink_analyse.py
 *.backup.json
 
 # Generierte Diagramme (Quellen liegen in docs/, Bilder in docs/img/)
-/classes_*.png
-/classes_*.svg
-/packages_*.png
-/packages_*.svg
-out/
+#/classes_*.png
+#/classes_*.svg
+#/packages_*.png
+#/packages_*.svg
+/out/
