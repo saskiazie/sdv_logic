@@ -1,5 +1,11 @@
 # SDV Logic with KUKSA Databroker
 
+> **Branch `hardware-writemode`.** This branch prepares the logic layer for
+> operation on the physical demonstrator: how a signal is written is no longer
+> decided in the modules but per signal in `config/writemode_config.yaml`. With
+> the shipped default the behaviour is identical to `main`. See *Write mode*
+> below and `docs/hardware_mapping.md`.
+
 This project implements a modular **Software-Defined Vehicle (SDV)** logic in Python.
 All vehicle logic runs as decentralized modules in a Linux VM and communicates
 exclusively with the **Eclipse KUKSA Databroker** via gRPC.
@@ -88,7 +94,7 @@ Unreal Interface below.
 |------|-----------|------|
 | KUKSA Databroker | Docker container `Server` | single source of truth for all signals |
 | KuksaConnection | VM, shared by all threads | thread-safe gRPC access |
-| Logic modules | VM, one daemon thread each | read signals, decide, publish signals |
+| Logic modules | VM, one daemon thread each | read signals, decide, write signals |
 | vehicle_state | VM, shared dict | coordination between the modules |
 | UnrealSender | VM, TCP server (7010) | streams the visualization state |
 | UnrealReceiver | VM, TCP server (7011) | publishes the speed measured in Unreal |
@@ -125,9 +131,11 @@ sdv_logic/config/
 - autolock_config.yaml - speed threshold, gear codes
 - powertrain_config.yaml - gear codes, thresholds
 - pdc_config.yaml - reverse gear threshold
+- writemode_config.yaml - current value or target value, per signal
 
 sdv_logic/docs/
 - used_vss_signals.md - signal reference per module
+- hardware_mapping.md - which DBC mapping each signal needs
 - architecture_overview.puml - system architecture
 - vehicle_state_machine.puml - startup state machine
 - sequence_startup.puml - startup sequence across modules
@@ -369,6 +377,76 @@ pdc:
 
 ---
 
+## Write mode
+
+The databroker offers two ways to write a signal, and they mean different
+things:
+
+- **current value** (`publish`) - this *is* the state. Written by whoever
+  produces it.
+- **target value** (`actuate`) - this state *is requested*. Written by whoever
+  wants it, executed by a control unit that then reports the current value back.
+
+On `main` every write is a current value, which is correct there: nothing sits
+behind the broker, so the logic is the last instance and its decision *is* the
+state. On the wired demonstrator that stops being true for every signal a
+control unit owns.
+
+The modules therefore no longer call `publish()` or `set()` directly. They call
+`write()`, and the mode is resolved per signal:
+
+```yaml
+# config/writemode_config.yaml
+kuksa:
+  reset_baseline: true
+  write_mode:
+    default: publish
+    signals:
+      Vehicle.Body.Lights.Beam.Low.IsOn: actuate
+      Vehicle.ADAS.PDC.Rear.IsActive: publish
+```
+
+Anything not listed falls back to `default`, so an empty configuration
+reproduces the behaviour of `main` exactly.
+
+### Why a configuration file and not the VSS type
+
+The type in `Own_GUI_vss.json` says whether a target value *exists*, not who
+should write it. An actuator node carries both values, and which one a given
+writer owns follows from its role, not from the signal.
+`Vehicle.ADAS.PDC.Rear.IsActive` is an actuator, but this logic is its provider
+- a target value would be addressed to nobody.
+`Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` is an actuator too, yet it is read
+as a measurement. The type does constrain one direction: a `sensor` node has no
+target value at all, so `actuate` would be rejected by the broker.
+
+### Two switches that come with it
+
+`reset_baseline: false` skips the startup reset in `init_kuksa_signals.py`. The
+baseline seeds current values and assumes nothing else feeds them - on the
+demonstrator it would fight the CAN input.
+
+`write_many()` bundles one gRPC call **per mode**, not one overall. Signals that
+must never drift apart therefore have to share a mode. The three indicator lamps
+do, because they share a control unit.
+
+### What this does not do
+
+Switching a signal to `actuate` only has an effect if a `vss2dbc` entry exists
+for it in the DBC feeder configuration of the demonstrator. Without one the
+request is accepted by the broker and goes nowhere, silently.
+`docs/hardware_mapping.md` lists per signal which mapping is needed, which zone
+it belongs to, and which signals have no counterpart on the bus at all.
+
+**Three writes stay on `publish()`** and say so at the call site. `CurrentGear`
+and `Vehicle.Speed` are of type sensor and have no target value; the
+`*.IsEnabled` switches are actuators, but the indicator stalk feeds their
+current value on the demonstrator, so requesting a target would not change what
+`IndicatorLogic` reads back. Converting these is a design question, not a method
+swap.
+
+---
+
 ## Unreal Interface
 
 ### Where the Unreal project comes from
@@ -490,6 +568,7 @@ change in `BP_Transceiver` is required.
 
 | Diagram | Question it answers |
 |---------|--------------------|
+| `docs/hardware_mapping.md` | Which DBC mapping does each signal need? |
 | `docs/architecture_overview.puml` | Which part runs where, how does data flow? |
 | `docs/vehicle_state_machine.puml` | How does the vehicle start up? |
 | `docs/sequence_startup.puml` | Which module reacts when, in which order? |
@@ -526,4 +605,3 @@ docker stop Server && docker rm Server
 ```bash
 docker network rm kuksa
 ```
-

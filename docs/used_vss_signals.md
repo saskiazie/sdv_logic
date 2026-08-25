@@ -6,12 +6,13 @@ signal. Derived from the module sources and `Own_GUI_vss.json` (VSS 4.1 base)
 
 **Access types**
 - **read** - `kuksa.get()` / `kuksa.get_many()` (current value)
-- **write** - `kuksa.publish()` / `kuksa.publish_many()` (current value)
+- **write** - `kuksa.write()` / `kuksa.write_many()`
 
-No module writes target values. `KuksaConnection.set()` exists but is unused:
-in this setup no control unit sits behind the broker, so the logic is itself
-the provider of every signal it writes. See "System boundary" at the end of
-this file.
+On this branch the modules no longer choose between the two write paths. They
+call `write()`, and `config/writemode_config.yaml` decides per signal whether
+the value goes out as a current value (`publish`) or as a target value
+(`actuate`). Six writes stay on `publish()` explicitly and say so at the call
+site - see "System boundary" at the end of this file.
 
 ---
 
@@ -291,9 +292,16 @@ have a provider that executes a request and reports back what actually
 happened, the logic here has to do both jobs at once - it decides, and it
 states the result as fact.
 
-On the wired demonstrator the signals owned by a control unit would have to be
-written as **target values** instead (`kuksa.set()` / `actuate` in the CLI),
-and the control unit would report the current value back through the
-`dbc2vss` mapping. Which signals are affected, and which two cases cannot be
-converted by changing the method alone, is documented in the `hardware-writemode`
-branch.
+This branch makes that a configuration question. `write()` resolves the mode
+per signal, so the same code runs in both setups: with the default
+(`publish`) it behaves exactly like `main`, and with the signals listed in
+`config/writemode_config.yaml` it requests them as target values instead.
+
+Three writes cannot be converted by changing the method. `CurrentGear` and
+`Vehicle.Speed` are of type sensor and have no target value at all; the
+`*.IsEnabled` switches are actuators, but on the demonstrator the indicator
+stalk feeds their current value, so a target value would not change what the
+logic reads back. These are design questions, not method swaps.
+
+What has to exist on the bus for an `actuate` write to have an effect is
+listed per signal in `docs/hardware_mapping.md`.
