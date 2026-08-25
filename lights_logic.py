@@ -80,7 +80,7 @@ class LightsLogic:
         in the same frame and would otherwise overwrite the blinker
         materials with their (false) idle state.
         '''
-        self.kuksa.publish_many({
+        self.kuksa.write_many({
             self.HAZARD_SIGNAL: state,
             self.LEFT_LIGHT_SIGNAL: state,
             self.RIGHT_LIGHT_SIGNAL: state,
@@ -127,7 +127,7 @@ class LightsLogic:
 
         if current_time - self.buzzer_start_time >= self.BUZZER_TIMEOUT:
             try:
-                self.kuksa.publish(self.BUZZER_SIGNAL, 0)
+                self.kuksa.write(self.BUZZER_SIGNAL, 0)
             except Exception:
                 pass  # buzzer signal is optional (may not be mapped)
             self.buzzer_active = False
@@ -136,10 +136,10 @@ class LightsLogic:
         '''Welcome feedback: interior light on + double blink.'''
         if not self.unlock_feedback_done:
             # vehicle still in access phase -> main switch off
-            self.kuksa.publish(self.LIGHT_SWITCH_SIGNAL, "OFF")
+            self.kuksa.write(self.LIGHT_SWITCH_SIGNAL, "OFF")
 
             # interior light on, with auto-off timer
-            self.kuksa.publish(self.INTERIOR_LIGHT_SIGNAL, True)
+            self.kuksa.write(self.INTERIOR_LIGHT_SIGNAL, True)
             self.interior_light_start_time = current_time
 
             # start the double-blink sequence
@@ -156,7 +156,7 @@ class LightsLogic:
         if (self.interior_light_start_time
                 and current_time - self.interior_light_start_time
                 >= self.INTERIOR_LIGHT_TIMEOUT):
-            self.kuksa.publish(self.INTERIOR_LIGHT_SIGNAL, False)
+            self.kuksa.write(self.INTERIOR_LIGHT_SIGNAL, False)
             self.interior_light_start_time = None
 
     def handle_ready(self):
@@ -165,11 +165,11 @@ class LightsLogic:
             return
 
         # activate DRL via the VSS light switch + the light itself
-        self.kuksa.publish(self.LIGHT_SWITCH_SIGNAL, "DAYTIME_RUNNING_LIGHTS")
-        self.kuksa.publish(self.DAYTIME_RUNNING_LIGHT_SIGNAL, True)
+        self.kuksa.write(self.LIGHT_SWITCH_SIGNAL, "DAYTIME_RUNNING_LIGHTS")
+        self.kuksa.write(self.DAYTIME_RUNNING_LIGHT_SIGNAL, True)
 
         # disable the welcome lighting
-        self.kuksa.publish(self.INTERIOR_LIGHT_SIGNAL, False)
+        self.kuksa.write(self.INTERIOR_LIGHT_SIGNAL, False)
 
         self.ready_lighting_done = True
         print("[LightsLogic] Info: daytime running lights activated")
@@ -180,10 +180,10 @@ class LightsLogic:
             return
 
         # main light switch off, exterior and interior lights off
-        self.kuksa.publish(self.LIGHT_SWITCH_SIGNAL, "OFF")
-        self.kuksa.publish(self.DAYTIME_RUNNING_LIGHT_SIGNAL, False)
-        self.kuksa.publish(self.LOW_BEAM_SIGNAL, False)
-        self.kuksa.publish(self.INTERIOR_LIGHT_SIGNAL, False)
+        self.kuksa.write(self.LIGHT_SWITCH_SIGNAL, "OFF")
+        self.kuksa.write(self.DAYTIME_RUNNING_LIGHT_SIGNAL, False)
+        self.kuksa.write(self.LOW_BEAM_SIGNAL, False)
+        self.kuksa.write(self.INTERIOR_LIGHT_SIGNAL, False)
 
         # start the double-blink sequence
         self.feedback_active = True
@@ -192,7 +192,7 @@ class LightsLogic:
 
         # optional acoustic lock confirmation
         try:
-            self.kuksa.publish(self.BUZZER_SIGNAL, 1)
+            self.kuksa.write(self.BUZZER_SIGNAL, 1)
             self.buzzer_active = True
             self.buzzer_start_time = current_time
         except Exception:

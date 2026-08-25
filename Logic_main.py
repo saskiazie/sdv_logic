@@ -49,13 +49,20 @@ def main():
     # 2. Connection: initialize the KUKSA databroker interface.
     # Safety gate: if the connection fails, stop execution immediately.
     kuksa = KuksaConnection(host=config["kuksa"]["host"],
-                            port=config["kuksa"]["port"])
+                            port=config["kuksa"]["port"],
+                            write_mode=config["kuksa"].get("write_mode"))
     if not kuksa.connect():
         print("[Main] Error: program stopped because KUKSA is not available")
         return
 
-    # 3. Reset all relevant vehicle signals to a defined baseline state
-    reset_vehicle_signals(kuksa, verbose=False)
+    # 3. Reset all relevant vehicle signals to a defined baseline state.
+    # The baseline seeds current values and therefore assumes that no
+    # control unit feeds them. On the wired demonstrator it would fight
+    # the CAN input, so it is skipped there (config: reset_baseline).
+    if config["kuksa"].get("reset_baseline", True):
+        reset_vehicle_signals(kuksa, verbose=False)
+    else:
+        print("[Main] Info: baseline reset skipped (reset_baseline: false)")
     #kuksa.publish("Vehicle.Body.Access.KeyFob.IsUnlocked", False)
     #kuksa.publish("Vehicle.Body.IgnitionState", 0)
 

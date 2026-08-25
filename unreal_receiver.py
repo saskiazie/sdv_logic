@@ -184,6 +184,9 @@ class UnrealReceiver:
         if (self.last_speed is None
                 or abs(speed - self.last_speed) > self.SPEED_EPSILON):
             try:
+                # Deliberately publish(), not write(): Vehicle.Speed is
+                # of type sensor and is fed from CAN on the wired
+                # demonstrator - see writemode_config.yaml.
                 self.kuksa.publish(self.SPEED_SIGNAL, speed)
                 self.last_speed = speed
             except Exception as e:

@@ -84,6 +84,10 @@ class IndicatorLogic:
         # 1a. Hazard falling edge: releasing the hazard switch also
         # releases any engaged individual indicator (design decision,
         # see docstring - deviates from a mechanically latched stalk).
+        # Deliberately publish(), not write(): these switch signals are
+        # the request side. On the wired demonstrator the indicator
+        # stalk feeds their current value, so the interlock would fight
+        # the control unit - see writemode_config.yaml.
         if self.prev_hazard_switch and not hazard_on:
             if left_on:
                 left_on = False
@@ -163,6 +167,6 @@ class IndicatorLogic:
                 updates[signal] = False
 
         if updates:
-            self.kuksa.publish_many(updates)
+            self.kuksa.write_many(updates)
 
         self.prev_request = request

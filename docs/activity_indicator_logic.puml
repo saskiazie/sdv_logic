@@ -54,7 +54,7 @@ endif
 
 :5. collect updates:\nactive -> blink_state\njust switched off -> false;
 
-:publish_many(updates)\nONE atomic gRPC call;
+:write_many(updates)\nONE gRPC call per write mode;
 note right
   left/right can never
   drift apart

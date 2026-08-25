@@ -84,6 +84,9 @@ class PowertrainSafetyLogic:
 
         moving = speed > self.moving_speed_threshold
 
+        # Deliberately publish(), not write(): CurrentGear is of type
+        # sensor. On the wired demonstrator the transmission owns it and
+        # would overwrite the correction - see writemode_config.yaml.
         # Case 1: Park selected while moving
         if moving and gear == self.gear_park:
             if self.is_driving_gear(self.last_valid_gear):

@@ -54,9 +54,13 @@ class PDCLogic:
         return gear < self.reverse_gear_threshold
 
     def safe_kuksa_publish(self, signal, value):
-        '''publish a current value; silently skip if the signal is unmapped.'''
+        '''write a value; silently skip if the signal is unmapped.
+
+        The name is kept for continuity; the write path itself is now
+        decided per signal in config/writemode_config.yaml.
+        '''
         try:
-            self.kuksa.publish(signal, value)
+            self.kuksa.write(signal, value)
         except Exception:
             pass
 
@@ -91,16 +95,16 @@ class PDCLogic:
         # Step 1: system activation and backup light
         if is_engine_running and self.is_reverse(gear):
             if not self.pdc_active:
-                self.kuksa.publish(self.BACKUP_LIGHT_SIGNAL, True)
-                self.kuksa.publish(self.PDC_REAR_ACTIVE_SIGNAL, True)
+                self.kuksa.write(self.BACKUP_LIGHT_SIGNAL, True)
+                self.kuksa.write(self.PDC_REAR_ACTIVE_SIGNAL, True)
                 self.pdc_active = True
                 print("[PDCLogic] Info: rear parking sensor and backup "
                       "light activated")
         else:
             # deactivate exactly once when leaving reverse operation
             if self.pdc_active:
-                self.kuksa.publish(self.BACKUP_LIGHT_SIGNAL, False)
-                self.kuksa.publish(self.PDC_REAR_ACTIVE_SIGNAL, False)
+                self.kuksa.write(self.BACKUP_LIGHT_SIGNAL, False)
+                self.kuksa.write(self.PDC_REAR_ACTIVE_SIGNAL, False)
                 self.safe_kuksa_publish(self.BUZZER_SIGNAL, 0)  # mute buzzer
                 self.pdc_active = False
                 self.buzzer_toggle = False

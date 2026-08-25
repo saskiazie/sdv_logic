@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------
+# Write mode per signal
+# ---------------------------------------------------------------------
+# publish  -> current value (set_current_values). The logic itself is
+#             the provider of this signal; nothing behind the broker
+#             owns it. This is the mode of the broker-only setup.
+# actuate  -> target value (set_target_values). A control unit owns the
+#             signal and picks the request up through the vss2dbc
+#             mapping of the DBC feeder.
+#
+# Switching a signal to "actuate" only has an effect if
+#   1. the VSS node is of type actuator (sensors have no target value)
+#   2. a vss2dbc entry exists for it in vss_dbc_front.json /
+#      vss_dbc_rear.json
+# Without 2. the request stays inside the broker and no lamp lights up.
+#
+# To run the broker-only setup, set default: publish and comment out
+# the signal block - the system then behaves exactly as verified in
+# chapter 7.
+# ---------------------------------------------------------------------
+
+kuksa:
+
+  # The baseline reset of init_kuksa_signals seeds current values and
+  # assumes no control unit feeds them. On the wired demonstrator it
+  # would fight the CAN input -> set to false there.
+  reset_baseline: true
+
+  write_mode:
+    default: publish
+
+    signals:
+
+      # --- Lighting: owned by the front/rear control units -----------
+      Vehicle.Body.Lights.LightSwitch: actuate
+      Vehicle.Body.Lights.Beam.Low.IsOn: actuate
+      Vehicle.Body.Lights.Running.IsOn: actuate
+      Vehicle.Body.Lights.Backup.IsOn: actuate
+      Vehicle.Cabin.Light.AmbientLight.IsLightOn: actuate
+
+      # --- Indicator lamps: one control unit, one mode ---------------
+      # These three must share a mode so write_many() keeps them in
+      # one call and they can never drift apart.
+      Vehicle.Body.Lights.Hazard.IsSignaling: actuate
+      Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling: actuate
+      Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling: actuate
+
+      # --- Central locking -------------------------------------------
+      Vehicle.Cabin.Door.Row1.DriverSide.IsLocked: actuate
+      Vehicle.Cabin.Door.Row1.PassengerSide.IsLocked: actuate
+
+      # --- Signals the logic owns itself -----------------------------
+      # No control unit behind them: the logic IS the provider, so the
+      # current value is the correct write path in both setups.
+      Vehicle.ADAS.PDC.Rear.IsActive: publish
+      Vehicle.Cabin.Infotainment.HMI.DistanceWarningChime: publish
+
+      # Signals not listed here stay on the default (publish).
+      # docs/hardware_mapping.md section 3 lists which ones those are
+      # and why each of them has no receiver on the bus.

@@ -55,8 +55,8 @@ class AutoLock:
     def set_all_doors_locked(self, locked):
         '''Lock or unlock all available doors (True = locked). Extendable
         with additional door signals (e.g. Row2) in one place.'''
-        self.kuksa.publish(self.DRIVER_LOCK, locked)
-        self.kuksa.publish(self.PASSENGER_LOCK, locked)
+        self.kuksa.write(self.DRIVER_LOCK, locked)
+        self.kuksa.write(self.PASSENGER_LOCK, locked)
 
     def run(self):
         if not self.vehicle_state.get("is_ready", False):
