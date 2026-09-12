@@ -100,7 +100,7 @@ Unreal Interface below.
 ## Project Structure
 
 Files not shown in the diagram above are helpers, configuration and
-documentation - the logic itself is the seven modules plus the connection
+documentation - the logic itself is the eight modules plus the connection
 wrapper.
 
 sdv_logic/
@@ -135,9 +135,7 @@ sdv_logic/docs/
 - img/ - generated class and package diagrams
 
 sdv_logic/test_files/
-- test_config.py
-- test_lights_logic.py
-- test_unreal_client.py - TCP client to inspect the frame stream
+- test_unreal_client.py - TCP client to inspect the frame stream without Unreal
 
 ---
 
@@ -304,16 +302,27 @@ rhythm is generated in Python, not in a Blueprint timer.
 
 ## VSS Mapping
 
-The mapping is based on **VSS 4.1** and extended with project-specific signals.
-`Own_GUI_vss.json` in this repository already contains all of them.
+`Own_GUI_vss.json` is not a stock VSS catalogue. It was generated from **VSS
+4.1** through the digital.auto tooling in an earlier project (the PySide6
+instrument cluster) and already carried a set of non-standard signals when this
+work started. This project added six more on top. The table separates the two,
+so that nobody has to guess which signals belong to which piece of work.
+
+**Inherited from the earlier project** - already present in the file, used here
+as they were:
+
+| Signal | Purpose |
+|--------|---------|
+| `Vehicle.ADAS.PDC.Rear.IsActive` / `.Distance` | park distance control - VSS only models generic obstacle detection |
+| `Vehicle.ADAS.PD.Front.IsActive` / `.Distance` | front person detection - displayed there, not used by any module here |
+| `Vehicle.Cabin.Light.AmbientLight.IsLightOn` | one interior light for the whole cabin; VSS only models per-row lights |
+
+**Added by this project:**
 
 | Signal | Why it was added |
 |--------|------------------|
 | `Vehicle.Body.Access.KeyFob.IsUnlocked` | key fob unlock/lock request - no equivalent in VSS 4.1 |
 | `Vehicle.Body.IgnitionState` | ignition switch position (0=LOCK, 1=OFF, 2=ACC, 3=ON) |
-| `Vehicle.ADAS.PDC.Rear.IsActive` / `.Distance` | park distance control - VSS only models generic obstacle detection |
-| `Vehicle.ADAS.PD.Front.IsActive` / `.Distance` | front person detection - prepared, not used by any module |
-| `Vehicle.Cabin.Light.AmbientLight.IsLightOn` | one interior light for the whole cabin; VSS only models per-row lights |
 | `Vehicle.Cabin.Infotainment.HMI.DistanceWarningChime` | acoustic warning tone (0=silent, 1=slow, 2=rapid, 3=solid) |
 | `Vehicle.Body.Lights.Hazard.IsEnabled` | switch state, separate from the lamp state |
 | `Vehicle.Body.Lights.DirectionIndicator.Left.IsEnabled` | same |
@@ -405,7 +414,7 @@ receives ASCII frames at 50 Hz:
 
 ```
 speed;gear;hazard;backup;drl;lowbeam;interior;pdc;turnl;turnr;gaspedal;steering|
-30.00;127;0;0;1;0;0;999.0;1;0;0.35;-12.40|
+30.00;127;0;0;1;0;0;999.0;1;0;70.00;-250.00|
 ```
 
 | Index | Signal | Type |
@@ -423,10 +432,13 @@ speed;gear;hazard;backup;drl;lowbeam;interior;pdc;turnl;turnr;gaspedal;steering|
 | 10 | Vehicle.Chassis.Accelerator.PedalPosition | float (2 decimals) |
 | 11 | Vehicle.Chassis.SteeringWheel.Angle | float (2 decimals) |
 
-Fields 10 and 11 travel in a circle: Unreal reads the pedal and the wheel, the
-values reach the broker, and the same values come back in the frame. The vehicle
-is therefore driven by the signal, not by its own input - the databroker stays
-the single source of truth even for values that originate in Unreal.
+Fields 10 and 11 are driver inputs, not display values. They are published to
+the broker from outside the logic layer - in the verified setup through the
+KUKSA CLI - and forwarded unchanged to Unreal, which turns them into motion
+through its physics component. Both are carried in their VSS units (percent
+and degrees); the conversion into the normalised inputs the physics expects
+happens in `BP_VehicleAdvPawnBase`, at the system boundary. The road speed that
+results comes back on port 7011.
 
 **Adding a field is a three-part change:** extend the frame in `unreal_sender.py`,
 raise the `Length == 12` guard in `BP_Transceiver` to the new count, and add the
@@ -464,13 +476,23 @@ behind reality.
 `BP_Transceiver` drives the vehicle through the Blueprint interface
 `BPI_VSSVehicle` - it holds no reference to a concrete vehicle class:
 
-| Interface event | Frame index | Meaning |
-|-----------------|-------------|---------|
-| `VSS_SetHazard` | 2 | hazard lamps on/off |
-| `VSS_SetLowBeam` | 5 | low beam on/off |
-| `VSS_SetTurnLeft` | 8 | left indicator lamp on/off |
-| `VSS_SetTurnRight` | 9 | right indicator lamp on/off |
-| `VSS_SetThrottle` | 10 | accelerator pedal position (float) |
+The interface holds seven functions: six setters that report a state to the
+vehicle, and one getter that reads a measured value back out of it.
+
+| Interface function | Frame index | Direction | Meaning |
+|--------------------|-------------|-----------|---------|
+| `VSS_SetHazard` | 2 | in | hazard lamps on/off |
+| `VSS_SetLowBeam` | 5 | in | low beam on/off |
+| `VSS_SetTurnLeft` | 8 | in | left indicator lamp on/off |
+| `VSS_SetTurnRight` | 9 | in | right indicator lamp on/off |
+| `VSS_SetThrottle` | 10 | in | accelerator pedal position, percent (float) |
+| `VSS_SetSteering` | 11 | in | steering wheel angle, degrees (float) |
+| `VSS_GetSpeed` | - | out | measured road speed, km/h (float) |
+
+Functions without a return value show up as **events** in the implementing
+blueprint, functions with one as **functions with their own graph**. That is
+why the six setters are events and `VSS_GetSpeed` is not - an unintended
+return value silently keeps a setter out of the event list.
 
 Speed (0) and hazard (2) additionally go to `WBP_Dashboard`, which is a widget
 and not addressed through the interface.
@@ -485,6 +507,42 @@ To connect a different vehicle: add `BPI_VSSVehicle` under Class Settings ->
 Interfaces, implement the events, and wire them to whatever the vehicle uses to
 show light or to drive (materials, light components, movement component). No
 change in `BP_Transceiver` is required.
+
+## Branches
+
+| Branch | State |
+|--------|-------|
+| `main` | Broker-only setup. Every signal is written as a **current value**; no control unit sits behind the broker. This is the state the thesis verifies. |
+| `hardware-writemode` | Same functionality, plus a per-signal write mode for the wired demonstrator. Adds `config/writemode_config.yaml`, `write()` / `write_many()` in `KuksaConnection`, and `docs/hardware_mapping.md`. |
+
+`hardware-writemode` is **not** needed to run the setup above. Check it out only
+when connecting the logic to the physical demonstrator:
+
+```bash
+git fetch && git checkout hardware-writemode
+```
+
+On that branch the write path is a configuration value rather than a property
+of the code. Each signal is either `publish` (current value - the logic is the
+provider) or `actuate` (target value - a control unit owns it and picks the
+request up through the `vss2dbc` mapping). Signals with no entry follow
+`default`, so leaving the block commented out reproduces the `main` behaviour
+exactly. The modules call `write()` / `write_many()` and no longer decide the
+write path themselves.
+
+Two things that are easy to miss on that branch:
+
+- The three `*.IsSignaling` signals must share one mode. `write_many()`
+  guarantees they leave the databroker together; a mixed mode splits the call
+  and brings back the left/right offset described in the thesis.
+- `reset_baseline` has to go to `false` on the wired demonstrator, otherwise
+  the baseline reset fights the values arriving over CAN.
+
+`docs/hardware_mapping.md` lists, per signal, which `dbc2vss` / `vss2dbc` entry
+has to exist for a write to have any effect at all - a missing mapping is
+accepted silently and raises no error.
+
+---
 
 ## Documentation
 
@@ -505,7 +563,7 @@ The class and package diagrams are generated directly from the code:
 pip install pylint
 ```
 ```bash
-pyreverse -o svg -p SDV_Logic --colorized Logic_main.py kuksa_connection.py config_loader.py start_sequence.py auto_lock.py powertrain_safety_logic.py pdc_logic.py lights_logic.py indicator_logic.py unreal_sender.py unreal_receiver.py
+pyreverse -o svg -p SDV_Logic --colorized Logic_main.py kuksa_connection.py config_loader.py init_kuksa_signals.py start_sequence.py auto_lock.py powertrain_safety_logic.py pdc_logic.py lights_logic.py indicator_logic.py unreal_sender.py unreal_receiver.py
 ```
 
 ---
@@ -526,4 +584,3 @@ docker stop Server && docker rm Server
 ```bash
 docker network rm kuksa
 ```
-

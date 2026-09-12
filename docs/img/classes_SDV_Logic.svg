@@ -59,11 +59,11 @@
 <!-- kuksa_connection.KuksaConnection -->
 <g id="node3" class="node">
 <title>kuksa_connection.KuksaConnection</title>
-<polygon fill="#aaaa00" stroke="#aaaa00" points="1164.5,-0.5 1164.5,-144.5 1370.5,-144.5 1370.5,-0.5 1164.5,-0.5"/>
+<polygon fill="#eedd88" stroke="#eedd88" points="1164.5,-0.5 1164.5,-144.5 1370.5,-144.5 1370.5,-0.5 1164.5,-0.5"/>
 <text text-anchor="start" x="1205.5" y="-129.3" font-family="Times,serif" font-size="14.00">KuksaConnection</text>
-<polyline fill="none" stroke="#aaaa00" points="1164.5,-121.5 1370.5,-121.5 "/>
+<polyline fill="none" stroke="#eedd88" points="1164.5,-121.5 1370.5,-121.5 "/>
 <text text-anchor="start" x="1205" y="-106.3" font-family="Times,serif" font-size="14.00">client : VSSClient</text>
-<polyline fill="none" stroke="#aaaa00" points="1164.5,-98.5 1370.5,-98.5 "/>
+<polyline fill="none" stroke="#eedd88" points="1164.5,-98.5 1370.5,-98.5 "/>
 <text text-anchor="start" x="1172.5" y="-83.3" font-family="Times,serif" font-size="14.00">connect()</text>
 <text text-anchor="start" x="1172.5" y="-68.3" font-family="Times,serif" font-size="14.00">get(signal, default)</text>
 <text text-anchor="start" x="1172.5" y="-53.3" font-family="Times,serif" font-size="14.00">get_many(signals, default)</text>
@@ -88,9 +88,9 @@
 <!-- lights_logic.LightsLogic -->
 <g id="node4" class="node">
 <title>lights_logic.LightsLogic</title>
-<polygon fill="#eedd88" stroke="#eedd88" points="484.5,-196.5 484.5,-655.5 802.5,-655.5 802.5,-196.5 484.5,-196.5"/>
+<polygon fill="#ee8866" stroke="#ee8866" points="484.5,-196.5 484.5,-655.5 802.5,-655.5 802.5,-196.5 484.5,-196.5"/>
 <text text-anchor="start" x="601.5" y="-640.3" font-family="Times,serif" font-size="14.00">LightsLogic</text>
-<polyline fill="none" stroke="#eedd88" points="484.5,-632.5 802.5,-632.5 "/>
+<polyline fill="none" stroke="#ee8866" points="484.5,-632.5 802.5,-632.5 "/>
 <text text-anchor="start" x="492.5" y="-617.3" font-family="Times,serif" font-size="14.00">BUZZER_SIGNAL : str</text>
 <text text-anchor="start" x="492.5" y="-602.3" font-family="Times,serif" font-size="14.00">BUZZER_TIMEOUT : float</text>
 <text text-anchor="start" x="492.5" y="-587.3" font-family="Times,serif" font-size="14.00">DAYTIME_RUNNING_LIGHT_SIGNAL : str</text>
@@ -112,7 +112,7 @@
 <text text-anchor="start" x="492.5" y="-347.3" font-family="Times,serif" font-size="14.00">ready_lighting_done : bool</text>
 <text text-anchor="start" x="492.5" y="-332.3" font-family="Times,serif" font-size="14.00">unlock_feedback_done : bool</text>
 <text text-anchor="start" x="492.5" y="-317.3" font-family="Times,serif" font-size="14.00">vehicle_state</text>
-<polyline fill="none" stroke="#eedd88" points="484.5,-309.5 802.5,-309.5 "/>
+<polyline fill="none" stroke="#ee8866" points="484.5,-309.5 802.5,-309.5 "/>
 <text text-anchor="start" x="509.5" y="-294.3" font-family="Times,serif" font-size="14.00">handle_buzzer_timeout(current_time)</text>
 <text text-anchor="start" x="509.5" y="-279.3" font-family="Times,serif" font-size="14.00">handle_double_blink(current_time)</text>
 <text text-anchor="start" x="509.5" y="-264.3" font-family="Times,serif" font-size="14.00">handle_lock(current_time)</text>
@@ -131,9 +131,9 @@
 <!-- pdc_logic.PDCLogic -->
 <g id="node5" class="node">
 <title>pdc_logic.PDCLogic</title>
-<polygon fill="#ee8866" stroke="#ee8866" points="820.5,-286.5 820.5,-565.5 1296.5,-565.5 1296.5,-286.5 820.5,-286.5"/>
+<polygon fill="#ffaabb" stroke="#ffaabb" points="820.5,-286.5 820.5,-565.5 1296.5,-565.5 1296.5,-286.5 820.5,-286.5"/>
 <text text-anchor="start" x="1023.5" y="-550.3" font-family="Times,serif" font-size="14.00">PDCLogic</text>
-<polyline fill="none" stroke="#ee8866" points="820.5,-542.5 1296.5,-542.5 "/>
+<polyline fill="none" stroke="#ffaabb" points="820.5,-542.5 1296.5,-542.5 "/>
 <text text-anchor="start" x="935.5" y="-527.3" font-family="Times,serif" font-size="14.00">BACKUP_LIGHT_SIGNAL : str</text>
 <text text-anchor="start" x="935.5" y="-512.3" font-family="Times,serif" font-size="14.00">BUZZER_SIGNAL : str</text>
 <text text-anchor="start" x="935.5" y="-497.3" font-family="Times,serif" font-size="14.00">DISTANCE_SENSOR_SIGNAL : str</text>
@@ -146,7 +146,7 @@
 <text text-anchor="start" x="935.5" y="-392.3" font-family="Times,serif" font-size="14.00">pdc_active : bool</text>
 <text text-anchor="start" x="935.5" y="-377.3" font-family="Times,serif" font-size="14.00">reverse_gear_threshold</text>
 <text text-anchor="start" x="935.5" y="-362.3" font-family="Times,serif" font-size="14.00">vehicle_state</text>
-<polyline fill="none" stroke="#ee8866" points="820.5,-354.5 1296.5,-354.5 "/>
+<polyline fill="none" stroke="#ffaabb" points="820.5,-354.5 1296.5,-354.5 "/>
 <text text-anchor="start" x="828.5" y="-339.3" font-family="Times,serif" font-size="14.00">is_reverse(gear)</text>
 <text text-anchor="start" x="828.5" y="-324.3" font-family="Times,serif" font-size="14.00">run()</text>
 <text text-anchor="start" x="828.5" y="-309.3" font-family="Times,serif" font-size="14.00">safe_kuksa_publish(signal, value)</text>
@@ -162,9 +162,9 @@
 <!-- powertrain_safety_logic.PowertrainSafetyLogic -->
 <g id="node6" class="node">
 <title>powertrain_safety_logic.PowertrainSafetyLogic</title>
-<polygon fill="#ffaabb" stroke="#ffaabb" points="1314.5,-286.5 1314.5,-565.5 1640.5,-565.5 1640.5,-286.5 1314.5,-286.5"/>
+<polygon fill="#dddddd" stroke="#dddddd" points="1314.5,-286.5 1314.5,-565.5 1640.5,-565.5 1640.5,-286.5 1314.5,-286.5"/>
 <text text-anchor="start" x="1396" y="-550.3" font-family="Times,serif" font-size="14.00">PowertrainSafetyLogic</text>
-<polyline fill="none" stroke="#ffaabb" points="1314.5,-542.5 1640.5,-542.5 "/>
+<polyline fill="none" stroke="#dddddd" points="1314.5,-542.5 1640.5,-542.5 "/>
 <text text-anchor="start" x="1388.5" y="-527.3" font-family="Times,serif" font-size="14.00">GEAR_SIGNAL : str</text>
 <text text-anchor="start" x="1388.5" y="-512.3" font-family="Times,serif" font-size="14.00">SPEED_SIGNAL : str</text>
 <text text-anchor="start" x="1388.5" y="-497.3" font-family="Times,serif" font-size="14.00">gear_drive</text>
@@ -176,7 +176,7 @@
 <text text-anchor="start" x="1388.5" y="-407.3" font-family="Times,serif" font-size="14.00">moving_speed_threshold</text>
 <text text-anchor="start" x="1388.5" y="-392.3" font-family="Times,serif" font-size="14.00">reverse_gear_threshold</text>
 <text text-anchor="start" x="1388.5" y="-377.3" font-family="Times,serif" font-size="14.00">vehicle_state</text>
-<polyline fill="none" stroke="#ffaabb" points="1314.5,-369.5 1640.5,-369.5 "/>
+<polyline fill="none" stroke="#dddddd" points="1314.5,-369.5 1640.5,-369.5 "/>
 <text text-anchor="start" x="1322.5" y="-354.3" font-family="Times,serif" font-size="14.00">is_driving_gear(gear)</text>
 <text text-anchor="start" x="1322.5" y="-339.3" font-family="Times,serif" font-size="14.00">is_forward(gear)</text>
 <text text-anchor="start" x="1322.5" y="-324.3" font-family="Times,serif" font-size="14.00">is_reverse(gear)</text>
@@ -193,9 +193,9 @@
 <!-- start_sequence.StartSequence -->
 <g id="node7" class="node">
 <title>start_sequence.StartSequence</title>
-<polygon fill="#dddddd" stroke="#dddddd" points="1659,-279 1659,-573 2006,-573 2006,-279 1659,-279"/>
+<polygon fill="#77aadd" stroke="#77aadd" points="1659,-279 1659,-573 2006,-573 2006,-279 1659,-279"/>
 <text text-anchor="start" x="1779.5" y="-557.8" font-family="Times,serif" font-size="14.00">StartSequence</text>
-<polyline fill="none" stroke="#dddddd" points="1659,-550 2006,-550 "/>
+<polyline fill="none" stroke="#77aadd" points="1659,-550 2006,-550 "/>
 <text text-anchor="start" x="1667" y="-534.8" font-family="Times,serif" font-size="14.00">DRIVER_LOCK_SIGNAL : str</text>
 <text text-anchor="start" x="1667" y="-519.8" font-family="Times,serif" font-size="14.00">ENGINE_RUNNING_SIGNAL : str</text>
 <text text-anchor="start" x="1667" y="-504.8" font-family="Times,serif" font-size="14.00">IGNITION_ACC : int</text>
@@ -212,7 +212,7 @@
 <text text-anchor="start" x="1667" y="-339.8" font-family="Times,serif" font-size="14.00">lock_done : bool</text>
 <text text-anchor="start" x="1667" y="-324.8" font-family="Times,serif" font-size="14.00">unlock_done : bool</text>
 <text text-anchor="start" x="1667" y="-309.8" font-family="Times,serif" font-size="14.00">vehicle_state</text>
-<polyline fill="none" stroke="#dddddd" points="1659,-302 2006,-302 "/>
+<polyline fill="none" stroke="#77aadd" points="1659,-302 2006,-302 "/>
 <text text-anchor="start" x="1814.5" y="-286.8" font-family="Times,serif" font-size="14.00">run()</text>
 </g>
 <!-- kuksa_connection.KuksaConnection&#45;&gt;start_sequence.StartSequence -->
@@ -225,9 +225,9 @@
 <!-- unreal_receiver.UnrealReceiver -->
 <g id="node8" class="node">
 <title>unreal_receiver.UnrealReceiver</title>
-<polygon fill="#77aadd" stroke="#77aadd" points="2024.5,-301.5 2024.5,-550.5 2242.5,-550.5 2242.5,-301.5 2024.5,-301.5"/>
+<polygon fill="#99ddff" stroke="#99ddff" points="2024.5,-301.5 2024.5,-550.5 2242.5,-550.5 2242.5,-301.5 2024.5,-301.5"/>
 <text text-anchor="start" x="2077.5" y="-535.3" font-family="Times,serif" font-size="14.00">UnrealReceiver</text>
-<polyline fill="none" stroke="#77aadd" points="2024.5,-527.5 2242.5,-527.5 "/>
+<polyline fill="none" stroke="#99ddff" points="2024.5,-527.5 2242.5,-527.5 "/>
 <text text-anchor="start" x="2032.5" y="-512.3" font-family="Times,serif" font-size="14.00">EXPECTED_FIELDS : int</text>
 <text text-anchor="start" x="2032.5" y="-497.3" font-family="Times,serif" font-size="14.00">MAX_BUFFER : int</text>
 <text text-anchor="start" x="2032.5" y="-482.3" font-family="Times,serif" font-size="14.00">SPEED_EPSILON : float</text>
@@ -241,7 +241,7 @@
 <text text-anchor="start" x="2032.5" y="-362.3" font-family="Times,serif" font-size="14.00">port : int</text>
 <text text-anchor="start" x="2032.5" y="-347.3" font-family="Times,serif" font-size="14.00">server : NoneType, socket</text>
 <text text-anchor="start" x="2032.5" y="-332.3" font-family="Times,serif" font-size="14.00">vehicle_state</text>
-<polyline fill="none" stroke="#77aadd" points="2024.5,-324.5 2242.5,-324.5 "/>
+<polyline fill="none" stroke="#99ddff" points="2024.5,-324.5 2242.5,-324.5 "/>
 <text text-anchor="start" x="2115.5" y="-309.3" font-family="Times,serif" font-size="14.00">run()</text>
 </g>
 <!-- kuksa_connection.KuksaConnection&#45;&gt;unreal_receiver.UnrealReceiver -->
@@ -254,9 +254,9 @@
 <!-- unreal_sender.UnrealSender -->
 <g id="node9" class="node">
 <title>unreal_sender.UnrealSender</title>
-<polygon fill="#99ddff" stroke="#99ddff" points="2261,-264 2261,-588 2464,-588 2464,-264 2261,-264"/>
+<polygon fill="#44bb99" stroke="#44bb99" points="2261,-264 2261,-588 2464,-588 2464,-264 2261,-264"/>
 <text text-anchor="start" x="2312.5" y="-572.8" font-family="Times,serif" font-size="14.00">UnrealSender</text>
-<polyline fill="none" stroke="#99ddff" points="2261,-565 2464,-565 "/>
+<polyline fill="none" stroke="#44bb99" points="2261,-565 2464,-565 "/>
 <text text-anchor="start" x="2269" y="-549.8" font-family="Times,serif" font-size="14.00">BACKUP_SIGNAL : str</text>
 <text text-anchor="start" x="2269" y="-534.8" font-family="Times,serif" font-size="14.00">DRL_SIGNAL : str</text>
 <text text-anchor="start" x="2269" y="-519.8" font-family="Times,serif" font-size="14.00">GASPEDAL_SIGNAL : str</text>
@@ -275,7 +275,7 @@
 <text text-anchor="start" x="2269" y="-324.8" font-family="Times,serif" font-size="14.00">port : int</text>
 <text text-anchor="start" x="2269" y="-309.8" font-family="Times,serif" font-size="14.00">server : NoneType, socket</text>
 <text text-anchor="start" x="2269" y="-294.8" font-family="Times,serif" font-size="14.00">vehicle_state</text>
-<polyline fill="none" stroke="#99ddff" points="2261,-287 2464,-287 "/>
+<polyline fill="none" stroke="#44bb99" points="2261,-287 2464,-287 "/>
 <text text-anchor="start" x="2344.5" y="-271.8" font-family="Times,serif" font-size="14.00">run()</text>
 </g>
 <!-- kuksa_connection.KuksaConnection&#45;&gt;unreal_sender.UnrealSender -->

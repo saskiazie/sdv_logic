@@ -132,11 +132,12 @@ is the frame field order.
 | 10 | `Vehicle.Chassis.Accelerator.PedalPosition` |
 | 11 | `Vehicle.Chassis.SteeringWheel.Angle` |
 
-Fields 10 and 11 are driver inputs travelling in a circle: Unreal reads the
-pedal and the wheel, the values reach the broker, and the same values are sent
-back so the visualization drives the vehicle from the signal rather than from
-its own input. This keeps the databroker the single source of truth even for
-values that originate in Unreal.
+Fields 10 and 11 are driver inputs, not display values. They are published to
+the broker from outside the logic layer - in the verified setup through the
+KUKSA CLI - and forwarded unchanged to Unreal, which turns them into motion
+through its physics component. Both travel in their VSS units (percent,
+degrees); the conversion into the normalised inputs the physics expects happens
+in `BP_VehicleAdvPawnBase`. No logic module writes them.
 
 ---
 
@@ -228,9 +229,28 @@ them for the short unlock/lock feedback blink and steps back whenever
 blink while an individual indicator is engaged) is a known limitation, see
 README.
 
+`Vehicle.Chassis.Accelerator.PedalPosition` and `Vehicle.Chassis.SteeringWheel.Angle`
+have no writer inside this project. They are fed from outside - the CLI in the
+verified setup - and only read by `UnrealSender`.
+
 ---
 
 ## 3. Non-standard signals
+
+`Own_GUI_vss.json` was generated from VSS 4.1 in an earlier project and already
+carried non-standard signals when this work started. The two groups are kept
+apart here so that nobody has to guess which signals belong to which piece of
+work.
+
+**Inherited - already in the file, used here unchanged:**
+
+| Signal | Reason |
+|--------|--------|
+| `Vehicle.ADAS.PDC.Rear.IsActive` / `.Distance` | park distance control |
+| `Vehicle.ADAS.PD.Front.IsActive` / `.Distance` | front person detection, unused here |
+| `Vehicle.Cabin.Light.AmbientLight.IsLightOn` | one cabin light instead of per-row lights |
+
+**Added by this project:**
 
 | Signal | Reason | Added by |
 |--------|--------|----------|
@@ -239,9 +259,6 @@ README.
 | `...DirectionIndicator.Right.IsEnabled` | same | `add_switch_signals.py` |
 | `Vehicle.Body.Access.KeyFob.IsUnlocked` | key fob request, no VSS equivalent | manually |
 | `Vehicle.Body.IgnitionState` | ignition switch position (uint8) | manually |
-| `Vehicle.ADAS.PDC.Rear.IsActive` / `.Distance` | park distance control | manually |
-| `Vehicle.ADAS.PD.Front.IsActive` / `.Distance` | front person detection, unused | manually |
-| `Vehicle.Cabin.Light.AmbientLight.IsLightOn` | one cabin light instead of per-row lights | manually |
 | `Vehicle.Cabin.Infotainment.HMI.DistanceWarningChime` | acoustic warning tone (uint8) | manually |
 
 Standard VSS models indicators with `IsSignaling` only, which mixes driver
@@ -291,9 +308,14 @@ have a provider that executes a request and reports back what actually
 happened, the logic here has to do both jobs at once - it decides, and it
 states the result as fact.
 
-On the wired demonstrator the signals owned by a control unit would have to be
+On the wired demonstrator the signals owned by a control unit have to be
 written as **target values** instead (`kuksa.set()` / `actuate` in the CLI),
-and the control unit would report the current value back through the
-`dbc2vss` mapping. Which signals are affected, and which two cases cannot be
-converted by changing the method alone, is documented in the `hardware-writemode`
-branch.
+and the control unit reports the current value back through the `dbc2vss`
+mapping. That switch is prepared on the `hardware-writemode` branch: it adds
+`config/writemode_config.yaml`, which sets the write path per signal, and
+`write()` / `write_many()` in `KuksaConnection`, which resolve it. Five signals
+stay on `publish` in every setup - `ADAS.PDC.Rear.IsActive`,
+`DistanceWarningChime`, the three `*.IsEnabled` switch states,
+`CurrentGear` and `Vehicle.Speed` - because no control unit executes them.
+`docs/hardware_mapping.md` on that branch lists the required `dbc2vss` /
+`vss2dbc` entry per signal.
